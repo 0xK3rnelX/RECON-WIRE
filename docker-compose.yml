@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  recon-wire:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: recon-wire:latest
+    container_name: recon-wire
+    environment:
+      - TERM=xterm-256color
+    volumes:
+      - ./output:/app/output
+    network_mode: "host"
+    stdin_open: true
+    tty: true
+    command: ["--help"]

@@ -1,0 +1,99 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "recon-wire"
+version = "1.0.0"
+description = "Next-Generation Cyber-Reconnaissance & Attack Surface Intelligence Engine"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "RECON-WIRE Team", email = "security@reconwire.io" }
+]
+keywords = [
+    "reconnaissance",
+    "osint",
+    "cybersecurity",
+    "subdomain-enumeration",
+    "attack-surface-management",
+    "information-gathering",
+    "bugbounty",
+    "red-team",
+    "waf-fingerprinting",
+    "takeover",
+    "secret-scanning",
+    "sarif",
+    "tui",
+    "rich"
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Security",
+    "Topic :: Internet",
+    "Topic :: System :: Networking :: Monitoring",
+]
+
+dependencies = [
+    "textual>=0.47.0",
+    "rich>=13.0.0",
+    "httpx>=0.25.0",
+    "dnspython>=2.4.0",
+    "beautifulsoup4>=4.12.0",
+    "python-Wappalyzer>=0.3.1",
+    "python-whois>=0.8.0",
+    "cryptography>=41.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "ruff>=0.1.0",
+    "mypy>=1.6.0",
+    "types-beautifulsoup4",
+]
+
+[project.urls]
+Homepage = "https://github.com/0xK3rnelX/recon-wire"
+Documentation = "https://github.com/0xK3rnelX/recon-wire#readme"
+Repository = "https://github.com/0xK3rnelX/recon-wire.git"
+Issues = "https://github.com/0xK3rnelX/recon-wire/issues"
+
+[project.scripts]
+recon-wire = "app:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*", "modules*", "ui*"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "A", "C4", "SIM"]
+ignore = ["E501", "B008", "A002", "A003", "UP006", "UP035"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
