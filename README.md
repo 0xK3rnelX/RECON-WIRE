@@ -11,10 +11,10 @@
     <strong>The Next-Generation Cyber-Reconnaissance & Attack Surface Intelligence Engine</strong>
   </p>
   <p align="center">
-    <a href="https://github.com/0xK3rnelX/recon-wire/actions"><img src="https://img.shields.io/badge/build-passing-brightgreen?style=for-the-badge&logo=githubactions" alt="Build Status"></a>
+    <a href="https://github.com/0xK3rnelX/RECON-WIRE/actions"><img src="https://img.shields.io/badge/build-passing-brightgreen?style=for-the-badge&logo=githubactions" alt="Build Status"></a>
     <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue?style=for-the-badge&logo=python" alt="Python Versions"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-purple?style=for-the-badge" alt="License"></a>
-    <a href="https://github.com/0xK3rnelX/recon-wire"><img src="https://img.shields.io/badge/SARIF-OASIS%20v2.1.0-orange?style=for-the-badge" alt="SARIF v2.1.0"></a>
+    <a href="https://github.com/0xK3rnelX/RECON-WIRE"><img src="https://img.shields.io/badge/SARIF-OASIS%20v2.1.0-orange?style=for-the-badge" alt="SARIF v2.1.0"></a>
     <a href="https://github.com/astral-sh/ruff"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json&style=for-the-badge" alt="Ruff"></a>
     <a href="https://hub.docker.com/"><img src="https://img.shields.io/badge/docker-ready-2496ED?style=for-the-badge&logo=docker" alt="Docker Ready"></a>
   </p>
@@ -86,7 +86,7 @@ Unlike legacy single-threaded tools that execute disjointed scripts, RECON-WIRE 
 
 ```bash
 # Clone the repository
-git clone https://github.com/0xK3rnelX/recon-wire.git
+git clone https://github.com/0xK3rnelX/RECON-WIRE.git
 cd recon-wire
 
 # Create and activate virtual environment
@@ -261,7 +261,7 @@ flowchart TD
 
 Contributions are welcomed! Check out our [Contributing Guide](CONTRIBUTING.md) and [Code of Conduct](CODE_OF_CONDUCT.md).
 
-1. Fork the repo (`https://github.com/0xK3rnelX/recon-wire`)
+1. Fork the repo (`https://github.com/0xK3rnelX/RECON-WIRE`)
 2. Create your feature branch (`git checkout -b feature/new-module`)
 3. Commit your changes (`git commit -m 'Add new attack vector'`)
 4. Push to the branch (`git push origin feature/new-module`)
@@ -273,6 +273,12 @@ Contributions are welcomed! Check out our [Contributing Guide](CONTRIBUTING.md) 
 
 > [!CAUTION]
 > **RECON-WIRE** is developed strictly for educational, defensive, and authorized penetration testing operations. Scanning targets without prior explicit written permission is strictly prohibited. The developers assume no liability for misuse, unintended damage, or illegal activities conducted with this tool.
+
+---
+
+## 👤 Author
+
+- **0XK3rnelX** - [GitHub](https://github.com/0xK3rnelX)
 
 ---
 

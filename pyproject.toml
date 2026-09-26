@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [
-    { name = "RECON-WIRE Team", email = "security@reconwire.io" }
+    { name = "0XK3rnelX", email = "0XK3rnelX@users.noreply.github.com" }
 ]
 keywords = [
     "reconnaissance",
@@ -67,10 +67,10 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/0xK3rnelX/recon-wire"
-Documentation = "https://github.com/0xK3rnelX/recon-wire#readme"
-Repository = "https://github.com/0xK3rnelX/recon-wire.git"
-Issues = "https://github.com/0xK3rnelX/recon-wire/issues"
+Homepage = "https://github.com/0xK3rnelX/RECON-WIRE"
+Documentation = "https://github.com/0xK3rnelX/RECON-WIRE#readme"
+Repository = "https://github.com/0xK3rnelX/RECON-WIRE.git"
+Issues = "https://github.com/0xK3rnelX/RECON-WIRE/issues"
 
 [project.scripts]
 recon-wire = "app:main"
