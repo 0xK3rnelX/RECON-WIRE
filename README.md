@@ -1,7 +1,4 @@
 <p align="center">
-  <img src="assets/banner.png" alt="RECON-WIRE Banner" width="100%">
-</p>
-<p align="center">
   <pre align="center">
   ██████╗ ███████╗ ██████╗ ██████╗ ███╗   ██╗     ██╗    ██╗██╗██████╗ ███████╗
   ██╔══██╗██╔════╝██╔════╝██╔═══██╗████╗  ██║     ██║    ██║██║██╔══██╗██╔════╝
