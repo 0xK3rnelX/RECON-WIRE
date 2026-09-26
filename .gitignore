@@ -45,6 +45,7 @@ recon_wire.log
 *.sarif
 *.json
 *.txt
+!requirements.txt
 *.md
 !README.md
 !CONTRIBUTING.md
