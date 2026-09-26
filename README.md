@@ -1,4 +1,7 @@
 <p align="center">
+  <img src="assets/banner.png" alt="RECON-WIRE Banner" width="100%">
+</p>
+<p align="center">
   <pre align="center">
   ██████╗ ███████╗ ██████╗ ██████╗ ███╗   ██╗     ██╗    ██╗██╗██████╗ ███████╗
   ██╔══██╗██╔════╝██╔════╝██╔═══██╗████╗  ██║     ██║    ██║██║██╔══██╗██╔════╝
@@ -253,6 +256,30 @@ flowchart TD
     Exporter --> F2[Markdown Report]
     Exporter --> F3[Plain-Text Report]
     Exporter --> F4[OASIS SARIF v2.1.0]
+```
+
+---
+
+## 🚀 Git Setup & GitHub Push Guide
+
+To push this project to your repository:
+
+```bash
+# 1. Initialize git and switch to main branch (if not already done)
+git init
+git branch -M main
+
+# 2. Link your remote repository
+git remote add origin https://github.com/0xK3rnelX/RECON-WIRE.git
+
+# 3. Stage all source files, modules, and assets
+git add .
+
+# 4. Create your release commit
+git commit -m "feat: release RECON-WIRE v1.0.0"
+
+# 5. Push to GitHub
+git push -u origin main
 ```
 
 ---
