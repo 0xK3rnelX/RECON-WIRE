@@ -7,14 +7,13 @@ and hosting provider classifications.
 from __future__ import annotations
 
 import asyncio
-import ipaddress
 import logging
 import socket
-from dataclasses import dataclass, asdict
-from typing import TYPE_CHECKING
+from dataclasses import asdict, dataclass
+from typing import TYPE_CHECKING, Any
 
 from modules.findings import push_finding
-from modules.stealth import build_client, apply_stealth_delay
+from modules.stealth import apply_stealth_delay, build_client
 
 if TYPE_CHECKING:
     from app.state import AppState
@@ -83,7 +82,6 @@ class ASNModule:
             if resp.status_code == 200:
                 data = resp.json()
                 name = data.get("name", "")
-                cidr = ""
                 for ent in data.get("entities", []):
                     vcard = ent.get("vcardArray", [])
                     if vcard:

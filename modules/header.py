@@ -8,8 +8,7 @@ from __future__ import annotations
 
 import logging
 import re
-from dataclasses import dataclass, field
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import httpx
 
@@ -22,31 +21,59 @@ logger = logging.getLogger("recon_wire.headers")
 
 # ── Required security headers and their check config ──
 REQUIRED_HEADERS: list[dict[str, Any]] = [
-    {"name": "Strict-Transport-Security", "severity": "HIGH",
-     "detail": "HSTS not set — vulnerable to SSL stripping attacks"},
-    {"name": "Content-Security-Policy", "severity": "HIGH",
-     "detail": "CSP not set — vulnerable to XSS and data injection attacks"},
-    {"name": "X-Content-Type-Options", "severity": "MEDIUM",
-     "detail": "X-Content-Type-Options not set — browser may MIME-sniff responses"},
-    {"name": "X-Frame-Options", "severity": "MEDIUM",
-     "detail": "X-Frame-Options not set — vulnerable to clickjacking"},
-    {"name": "Referrer-Policy", "severity": "LOW",
-     "detail": "Referrer-Policy not set — may leak sensitive URL paths"},
-    {"name": "Permissions-Policy", "severity": "LOW",
-     "detail": "Permissions-Policy not set — browser features not restricted"},
-    {"name": "X-XSS-Protection", "severity": "INFO",
-     "detail": "X-XSS-Protection not set (legacy but still good practice)"},
-    {"name": "Cross-Origin-Opener-Policy", "severity": "LOW",
-     "detail": "COOP not set — cross-origin isolation incomplete"},
-    {"name": "Cross-Origin-Resource-Policy", "severity": "LOW",
-     "detail": "CORP not set — cross-origin resource loading unrestricted"},
+    {
+        "name": "Strict-Transport-Security",
+        "severity": "HIGH",
+        "detail": "HSTS not set — vulnerable to SSL stripping attacks",
+    },
+    {
+        "name": "Content-Security-Policy",
+        "severity": "HIGH",
+        "detail": "CSP not set — vulnerable to XSS and data injection attacks",
+    },
+    {
+        "name": "X-Content-Type-Options",
+        "severity": "MEDIUM",
+        "detail": "X-Content-Type-Options not set — browser may MIME-sniff responses",
+    },
+    {"name": "X-Frame-Options", "severity": "MEDIUM", "detail": "X-Frame-Options not set — vulnerable to clickjacking"},
+    {"name": "Referrer-Policy", "severity": "LOW", "detail": "Referrer-Policy not set — may leak sensitive URL paths"},
+    {
+        "name": "Permissions-Policy",
+        "severity": "LOW",
+        "detail": "Permissions-Policy not set — browser features not restricted",
+    },
+    {
+        "name": "X-XSS-Protection",
+        "severity": "INFO",
+        "detail": "X-XSS-Protection not set (legacy but still good practice)",
+    },
+    {
+        "name": "Cross-Origin-Opener-Policy",
+        "severity": "LOW",
+        "detail": "COOP not set — cross-origin isolation incomplete",
+    },
+    {
+        "name": "Cross-Origin-Resource-Policy",
+        "severity": "LOW",
+        "detail": "CORP not set — cross-origin resource loading unrestricted",
+    },
 ]
 
 # ── Headers that leak server info ──
 INFO_DISCLOSURE_HEADERS = [
-    "Server", "X-Powered-By", "X-AspNet-Version", "X-AspNetMvc-Version",
-    "X-Generator", "X-Drupal-Cache", "X-Varnish", "Via", "X-Backend-Server",
-    "X-Runtime", "X-Version", "X-Request-Id",
+    "Server",
+    "X-Powered-By",
+    "X-AspNet-Version",
+    "X-AspNetMvc-Version",
+    "X-Generator",
+    "X-Drupal-Cache",
+    "X-Varnish",
+    "Via",
+    "X-Backend-Server",
+    "X-Runtime",
+    "X-Version",
+    "X-Request-Id",
 ]
 
 # ── HSTS max-age minimum (1 year = 31536000) ──
@@ -64,8 +91,8 @@ HEADER_WEIGHTS: dict[str, int] = {
     "Cross-Origin-Resource-Policy": 5,
     "X-XSS-Protection": 4,
     "info_disclosure_penalty": -5,  # per info header found
-    "cookie_penalty": -5,           # per insecure cookie
-    "cors_penalty": -10,            # for wildcard CORS
+    "cookie_penalty": -5,  # per insecure cookie
+    "cors_penalty": -10,  # for wildcard CORS
 }
 
 
@@ -106,9 +133,7 @@ class HeaderModule:
             status.progress = 90
             status.message = "Computing score"
 
-            score, grade = self._compute_score(
-                raw_headers, security_audit, info_audit, cookie_audit, cors_audit
-            )
+            score, grade = self._compute_score(raw_headers, security_audit, info_audit, cookie_audit, cors_audit)
 
             self.state.header_results = {
                 "raw_headers": dict(raw_headers),
@@ -134,17 +159,17 @@ class HeaderModule:
             logger.error("Header module failed: %s", exc, exc_info=True)
             await push_finding(
                 self.state.findings_queue,
-                severity="MEDIUM", module="HEADERS",
+                severity="MEDIUM",
+                module="HEADERS",
                 title="Header Module Error",
-                detail=str(exc), evidence=f"URL: {self.url}",
+                detail=str(exc),
+                evidence=f"URL: {self.url}",
             )
 
     async def _fetch_headers(self) -> tuple[httpx.Headers, list[str], int]:
         """Fetch response headers. Try HEAD first, fall back to GET."""
         redirect_chain: list[str] = []
-        async with httpx.AsyncClient(
-            timeout=self.timeout, follow_redirects=True, verify=False
-        ) as client:
+        async with httpx.AsyncClient(timeout=self.timeout, follow_redirects=True, verify=False) as client:
             try:
                 try:
                     resp = await client.head(self.url)
@@ -173,7 +198,7 @@ class HeaderModule:
         results: list[dict[str, Any]] = []
         for spec in REQUIRED_HEADERS:
             name = spec["name"]
-            present = name.lower() in {k.lower() for k in headers.keys()}
+            present = name.lower() in {k.lower() for k in headers}
             value = headers.get(name, "")
             entry: dict[str, Any] = {
                 "header": name,
@@ -186,7 +211,8 @@ class HeaderModule:
                 entry["issues"].append(spec["detail"])
                 await push_finding(
                     self.state.findings_queue,
-                    severity=spec["severity"], module="HEADERS",
+                    severity=spec["severity"],
+                    module="HEADERS",
                     title=f"Missing {name}",
                     detail=spec["detail"],
                     evidence=f"URL: {self.url}",
@@ -198,7 +224,8 @@ class HeaderModule:
                 for issue in issues:
                     await push_finding(
                         self.state.findings_queue,
-                        severity="MEDIUM", module="HEADERS",
+                        severity="MEDIUM",
+                        module="HEADERS",
                         title=f"Misconfigured {name}",
                         detail=issue,
                         evidence=f"{name}: {value}",
@@ -216,9 +243,7 @@ class HeaderModule:
             if age_match:
                 max_age = int(age_match.group(1))
                 if max_age < HSTS_MIN_AGE:
-                    issues.append(
-                        f"HSTS max-age too low ({max_age}s, recommend >= {HSTS_MIN_AGE}s)"
-                    )
+                    issues.append(f"HSTS max-age too low ({max_age}s, recommend >= {HSTS_MIN_AGE}s)")
             else:
                 issues.append("HSTS missing max-age directive")
             if "includesubdomains" not in value.lower():
@@ -243,10 +268,14 @@ class HeaderModule:
 
         elif name_lower == "referrer-policy":
             valid_policies = {
-                "no-referrer", "no-referrer-when-downgrade",
-                "origin", "origin-when-cross-origin",
-                "same-origin", "strict-origin",
-                "strict-origin-when-cross-origin", "unsafe-url",
+                "no-referrer",
+                "no-referrer-when-downgrade",
+                "origin",
+                "origin-when-cross-origin",
+                "same-origin",
+                "strict-origin",
+                "strict-origin-when-cross-origin",
+                "unsafe-url",
             }
             if value.strip().lower() not in valid_policies:
                 issues.append(f"Referrer-Policy value '{value}' is non-standard")
@@ -260,21 +289,25 @@ class HeaderModule:
         # Cache-control on HTTPS
         cc = headers.get("cache-control", "").lower()
         if self.state.config.scheme == "https" and "public" in cc and "no-store" not in cc:
-            issues.append({
-                "header": "Cache-Control",
-                "issue": "HTTPS response cached publicly — sensitive data may be stored in proxies",
-                "value": headers.get("cache-control", ""),
-            })
+            issues.append(
+                {
+                    "header": "Cache-Control",
+                    "issue": "HTTPS response cached publicly — sensitive data may be stored in proxies",
+                    "value": headers.get("cache-control", ""),
+                }
+            )
 
         # X-Frame-Options with CSP frame-ancestors conflict
         if headers.get("x-frame-options") and headers.get("content-security-policy"):
             csp = headers.get("content-security-policy", "")
             if "frame-ancestors" in csp.lower():
-                issues.append({
-                    "header": "X-Frame-Options + CSP",
-                    "issue": "Both X-Frame-Options and CSP frame-ancestors present — CSP takes precedence",
-                    "value": "Redundant clickjacking protection",
-                })
+                issues.append(
+                    {
+                        "header": "X-Frame-Options + CSP",
+                        "issue": "Both X-Frame-Options and CSP frame-ancestors present — CSP takes precedence",
+                        "value": "Redundant clickjacking protection",
+                    }
+                )
 
         return issues
 
@@ -313,11 +346,6 @@ class HeaderModule:
             if "samesite=none" in cookie_lower and "secure" not in cookie_lower:
                 audit["issues"].append("SameSite=None without Secure flag")
 
-            # Push findings for insecure cookies
-            for issue in audit["issues"]:
-                asyncio.get_event_loop()  # ensure loop exists
-                # We'll push findings synchronously-safe in this sync method
-                # by collecting them; caller will push
             results.append(audit)
         return results
 
@@ -329,9 +357,7 @@ class HeaderModule:
             "https://attacker.example.com",
             "null",
         ]
-        async with httpx.AsyncClient(
-            timeout=self.timeout, follow_redirects=True, verify=False
-        ) as client:
+        async with httpx.AsyncClient(timeout=self.timeout, follow_redirects=True, verify=False) as client:
             for origin in test_origins:
                 try:
                     resp = await client.get(
@@ -352,7 +378,8 @@ class HeaderModule:
                             entry["issue"] = "Wildcard CORS — any origin allowed"
                             await push_finding(
                                 self.state.findings_queue,
-                                severity="MEDIUM", module="HEADERS",
+                                severity="MEDIUM",
+                                module="HEADERS",
                                 title="Wildcard CORS Policy",
                                 detail="Access-Control-Allow-Origin: * allows any origin",
                                 evidence=f"Origin: {origin} → ACAO: {acao}",
@@ -362,17 +389,19 @@ class HeaderModule:
                             severity = "HIGH" if acac.lower() == "true" else "MEDIUM"
                             await push_finding(
                                 self.state.findings_queue,
-                                severity=severity, module="HEADERS",
+                                severity=severity,
+                                module="HEADERS",
                                 title="CORS Origin Reflection",
-                                detail=f"Server reflects attacker origin in ACAO"
-                                       + (", with credentials" if acac.lower() == "true" else ""),
+                                detail="Server reflects attacker origin in ACAO"
+                                + (", with credentials" if acac.lower() == "true" else ""),
                                 evidence=f"Origin: {origin} → ACAO: {acao}, ACAC: {acac}",
                             )
                         if acao == "null":
                             entry["issue"] = "CORS allows null origin"
                             await push_finding(
                                 self.state.findings_queue,
-                                severity="MEDIUM", module="HEADERS",
+                                severity="MEDIUM",
+                                module="HEADERS",
                                 title="CORS Allows Null Origin",
                                 detail="Access-Control-Allow-Origin: null — exploitable via sandboxed iframes",
                                 evidence=f"Origin: null → ACAO: {acao}",

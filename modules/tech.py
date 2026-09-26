@@ -9,8 +9,8 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
-from dataclasses import dataclass, asdict, field
-from typing import Any, TYPE_CHECKING
+from dataclasses import asdict, dataclass
+from typing import TYPE_CHECKING, Any
 
 import httpx
 from bs4 import BeautifulSoup
@@ -26,11 +26,12 @@ logger = logging.getLogger("recon_wire.tech")
 @dataclass
 class TechDetection:
     """A single technology detection result."""
+
     category: str
     name: str
     version: str | None = None
-    confidence: str = "MEDIUM"    # HIGH | MEDIUM | LOW
-    source: str = "HEADER"        # HEADER | BODY | WAPPALYZER | COOKIE
+    confidence: str = "MEDIUM"  # HIGH | MEDIUM | LOW
+    source: str = "HEADER"  # HEADER | BODY | WAPPALYZER | COOKIE
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -103,31 +104,35 @@ HEADER_SIGNATURES: list[dict[str, Any]] = [
 
 # ── Body fingerprint patterns ──
 BODY_SIGNATURES: list[dict[str, Any]] = [
-    {"pattern": r'jquery[.-]?(\d[\d.]*)?\.(?:min\.)?js', "category": "JS Library", "name": "jQuery"},
-    {"pattern": r'angular[.-]?(\d[\d.]*)?\.(?:min\.)?js', "category": "JS Framework", "name": "Angular"},
-    {"pattern": r'react[.-]?(\d[\d.]*)?\.(?:min\.)?js', "category": "JS Framework", "name": "React"},
-    {"pattern": r'vue[.-]?(\d[\d.]*)?\.(?:min\.)?js', "category": "JS Framework", "name": "Vue.js"},
-    {"pattern": r'bootstrap[.-]?(\d[\d.]*)?\.(?:min\.)?(?:js|css)', "category": "CSS Framework", "name": "Bootstrap"},
-    {"pattern": r'tailwind(?:css)?[.-]?(\d[\d.]*)?\.(?:min\.)?css', "category": "CSS Framework", "name": "Tailwind CSS"},
-    {"pattern": r'wp-content/', "category": "CMS", "name": "WordPress"},
-    {"pattern": r'wp-includes/', "category": "CMS", "name": "WordPress"},
-    {"pattern": r'/sites/default/files/', "category": "CMS", "name": "Drupal"},
+    {"pattern": r"jquery[.-]?(\d[\d.]*)?\.(?:min\.)?js", "category": "JS Library", "name": "jQuery"},
+    {"pattern": r"angular[.-]?(\d[\d.]*)?\.(?:min\.)?js", "category": "JS Framework", "name": "Angular"},
+    {"pattern": r"react[.-]?(\d[\d.]*)?\.(?:min\.)?js", "category": "JS Framework", "name": "React"},
+    {"pattern": r"vue[.-]?(\d[\d.]*)?\.(?:min\.)?js", "category": "JS Framework", "name": "Vue.js"},
+    {"pattern": r"bootstrap[.-]?(\d[\d.]*)?\.(?:min\.)?(?:js|css)", "category": "CSS Framework", "name": "Bootstrap"},
+    {
+        "pattern": r"tailwind(?:css)?[.-]?(\d[\d.]*)?\.(?:min\.)?css",
+        "category": "CSS Framework",
+        "name": "Tailwind CSS",
+    },
+    {"pattern": r"wp-content/", "category": "CMS", "name": "WordPress"},
+    {"pattern": r"wp-includes/", "category": "CMS", "name": "WordPress"},
+    {"pattern": r"/sites/default/files/", "category": "CMS", "name": "Drupal"},
     {"pattern": r'content="WordPress\s*(\d[\d.]*)"', "category": "CMS", "name": "WordPress"},
     {"pattern": r'content="Drupal\s*(\d[\d.]*)"', "category": "CMS", "name": "Drupal"},
     {"pattern": r'content="Joomla!\s*(\d[\d.]*)"', "category": "CMS", "name": "Joomla"},
     {"pattern": r'<meta name="generator" content="([^"]+)"', "category": "Generator", "name": ""},
-    {"pattern": r'ga\([\'\"]create[\'\"]', "category": "Analytics", "name": "Google Analytics"},
-    {"pattern": r'gtag\(', "category": "Analytics", "name": "Google Tag Manager"},
-    {"pattern": r'_gaq\.push', "category": "Analytics", "name": "Google Analytics (Legacy)"},
-    {"pattern": r'hotjar\.com', "category": "Analytics", "name": "Hotjar"},
-    {"pattern": r'fonts\.googleapis\.com', "category": "Font Service", "name": "Google Fonts"},
-    {"pattern": r'use\.typekit\.net', "category": "Font Service", "name": "Adobe Fonts"},
-    {"pattern": r'cloudflare\.com/ajax', "category": "CDN", "name": "Cloudflare"},
-    {"pattern": r'cdn\.jsdelivr\.net', "category": "CDN", "name": "jsDelivr"},
-    {"pattern": r'cdnjs\.cloudflare\.com', "category": "CDN", "name": "cdnjs"},
-    {"pattern": r'unpkg\.com', "category": "CDN", "name": "unpkg"},
-    {"pattern": r'recaptcha/api', "category": "Security", "name": "reCAPTCHA"},
-    {"pattern": r'hcaptcha\.com', "category": "Security", "name": "hCaptcha"},
+    {"pattern": r"ga\([\'\"]create[\'\"]", "category": "Analytics", "name": "Google Analytics"},
+    {"pattern": r"gtag\(", "category": "Analytics", "name": "Google Tag Manager"},
+    {"pattern": r"_gaq\.push", "category": "Analytics", "name": "Google Analytics (Legacy)"},
+    {"pattern": r"hotjar\.com", "category": "Analytics", "name": "Hotjar"},
+    {"pattern": r"fonts\.googleapis\.com", "category": "Font Service", "name": "Google Fonts"},
+    {"pattern": r"use\.typekit\.net", "category": "Font Service", "name": "Adobe Fonts"},
+    {"pattern": r"cloudflare\.com/ajax", "category": "CDN", "name": "Cloudflare"},
+    {"pattern": r"cdn\.jsdelivr\.net", "category": "CDN", "name": "jsDelivr"},
+    {"pattern": r"cdnjs\.cloudflare\.com", "category": "CDN", "name": "cdnjs"},
+    {"pattern": r"unpkg\.com", "category": "CDN", "name": "unpkg"},
+    {"pattern": r"recaptcha/api", "category": "Security", "name": "reCAPTCHA"},
+    {"pattern": r"hcaptcha\.com", "category": "Security", "name": "hCaptcha"},
 ]
 
 # ── Cookie-based fingerprints ──
@@ -190,24 +195,40 @@ class TechModule:
             status.message = "Extracting HTML comments"
             comments = self._extract_comments(body)
             if comments:
-                self.state.tech_results.append(TechDetection(
-                    category="Leak",
-                    name=f"{len(comments)} HTML comments found",
-                    version=None,
-                    confidence="HIGH",
-                    source="BODY",
-                ))
+                self.state.tech_results.append(
+                    TechDetection(
+                        category="Leak",
+                        name=f"{len(comments)} HTML comments found",
+                        version=None,
+                        confidence="HIGH",
+                        source="BODY",
+                    )
+                )
                 # Store comments in header_results for tech_tab display
                 if "html_comments" not in self.state.header_results:
                     self.state.header_results["html_comments"] = comments
                 for comment in comments[:5]:  # Limit to first 5
-                    if any(kw in comment.lower() for kw in [
-                        "todo", "fixme", "hack", "bug", "password", "secret",
-                        "api", "key", "token", "credential", "debug", "admin",
-                    ]):
+                    if any(
+                        kw in comment.lower()
+                        for kw in [
+                            "todo",
+                            "fixme",
+                            "hack",
+                            "bug",
+                            "password",
+                            "secret",
+                            "api",
+                            "key",
+                            "token",
+                            "credential",
+                            "debug",
+                            "admin",
+                        ]
+                    ):
                         await push_finding(
                             self.state.findings_queue,
-                            severity="MEDIUM", module="TECH",
+                            severity="MEDIUM",
+                            module="TECH",
                             title="Sensitive HTML Comment",
                             detail="HTML comment may contain sensitive information",
                             evidence=comment[:200],
@@ -229,9 +250,7 @@ class TechModule:
 
     async def _fetch_response(self) -> tuple[dict[str, str], str, dict[str, str]]:
         """Fetch full HTTP response for analysis."""
-        async with httpx.AsyncClient(
-            timeout=self.timeout, follow_redirects=True, verify=False
-        ) as client:
+        async with httpx.AsyncClient(timeout=self.timeout, follow_redirects=True, verify=False) as client:
             try:
                 resp = await client.get(self.url)
             except Exception:
@@ -241,9 +260,7 @@ class TechModule:
                     raise
             headers = dict(resp.headers)
             body = resp.text[:500000]  # Limit body scan to 500KB
-            cookies = {
-                name: value for name, value in resp.cookies.items()
-            }
+            cookies = dict(resp.cookies.items())
             # Also parse Set-Cookie headers for more cookie names
             for sc in resp.headers.get_list("set-cookie"):
                 match = re.match(r"^([^=]+)=", sc)
@@ -274,13 +291,15 @@ class TechModule:
                     version = None
                     if match.lastindex and match.lastindex >= 1:
                         version = match.group(1)
-                    self._add_detection(TechDetection(
-                        category=sig["category"],
-                        name=sig["name"],
-                        version=version,
-                        confidence="HIGH",
-                        source="HEADER",
-                    ))
+                    self._add_detection(
+                        TechDetection(
+                            category=sig["category"],
+                            name=sig["name"],
+                            version=version,
+                            confidence="HIGH",
+                            source="HEADER",
+                        )
+                    )
 
     def _fingerprint_body(self, body: str) -> None:
         """Fingerprint technologies from HTML body."""
@@ -294,13 +313,15 @@ class TechModule:
                 if not name and match.lastindex and match.lastindex >= 1:
                     name = match.group(1)  # For generic generator pattern
                 if name:
-                    self._add_detection(TechDetection(
-                        category=sig["category"],
-                        name=name,
-                        version=version,
-                        confidence="MEDIUM",
-                        source="BODY",
-                    ))
+                    self._add_detection(
+                        TechDetection(
+                            category=sig["category"],
+                            name=name,
+                            version=version,
+                            confidence="MEDIUM",
+                            source="BODY",
+                        )
+                    )
 
         # BeautifulSoup deep analysis
         try:
@@ -310,13 +331,15 @@ class TechModule:
             for meta in soup.find_all("meta", attrs={"name": re.compile(r"generator", re.I)}):
                 content = meta.get("content", "")
                 if content:
-                    self._add_detection(TechDetection(
-                        category="Generator",
-                        name=content[:50],
-                        version=None,
-                        confidence="HIGH",
-                        source="BODY",
-                    ))
+                    self._add_detection(
+                        TechDetection(
+                            category="Generator",
+                            name=content[:50],
+                            version=None,
+                            confidence="HIGH",
+                            source="BODY",
+                        )
+                    )
 
             # Script src analysis
             for script in soup.find_all("script", src=True):
@@ -325,13 +348,15 @@ class TechModule:
                     match = re.search(sig["pattern"], src, re.IGNORECASE)
                     if match and sig["name"]:
                         version = match.group(1) if match.lastindex else None
-                        self._add_detection(TechDetection(
-                            category=sig["category"],
-                            name=sig["name"],
-                            version=version,
-                            confidence="HIGH",
-                            source="BODY",
-                        ))
+                        self._add_detection(
+                            TechDetection(
+                                category=sig["category"],
+                                name=sig["name"],
+                                version=version,
+                                confidence="HIGH",
+                                source="BODY",
+                            )
+                        )
 
             # Link href analysis (stylesheets)
             for link in soup.find_all("link", rel="stylesheet", href=True):
@@ -340,13 +365,15 @@ class TechModule:
                     match = re.search(sig["pattern"], href, re.IGNORECASE)
                     if match and sig["name"]:
                         version = match.group(1) if match.lastindex else None
-                        self._add_detection(TechDetection(
-                            category=sig["category"],
-                            name=sig["name"],
-                            version=version,
-                            confidence="HIGH",
-                            source="BODY",
-                        ))
+                        self._add_detection(
+                            TechDetection(
+                                category=sig["category"],
+                                name=sig["name"],
+                                version=version,
+                                confidence="HIGH",
+                                source="BODY",
+                            )
+                        )
 
         except Exception as exc:
             logger.debug("BeautifulSoup analysis error: %s", exc)
@@ -356,18 +383,21 @@ class TechModule:
         for cookie_name in cookies:
             for sig_name, (category, tech) in COOKIE_SIGNATURES.items():
                 if sig_name.lower() in cookie_name.lower():
-                    self._add_detection(TechDetection(
-                        category=category,
-                        name=tech,
-                        version=None,
-                        confidence="MEDIUM",
-                        source="COOKIE",
-                    ))
+                    self._add_detection(
+                        TechDetection(
+                            category=category,
+                            name=tech,
+                            version=None,
+                            confidence="MEDIUM",
+                            source="COOKIE",
+                        )
+                    )
 
     async def _run_wappalyzer(self) -> None:
         """Run python-Wappalyzer analysis."""
         try:
             from Wappalyzer import Wappalyzer, WebPage
+
             loop = asyncio.get_event_loop()
 
             def _wap_analyze() -> dict:
@@ -382,13 +412,15 @@ class TechModule:
                 categories = details.get("categories", set())
                 version = next(iter(versions), None) if versions else None
                 category = next(iter(categories), "Unknown") if categories else "Unknown"
-                self._add_detection(TechDetection(
-                    category=str(category),
-                    name=tech_name,
-                    version=version,
-                    confidence="HIGH",
-                    source="WAPPALYZER",
-                ))
+                self._add_detection(
+                    TechDetection(
+                        category=str(category),
+                        name=tech_name,
+                        version=version,
+                        confidence="HIGH",
+                        source="WAPPALYZER",
+                    )
+                )
         except ImportError:
             logger.warning("python-Wappalyzer not available — skipping Wappalyzer analysis")
         except Exception as exc:
@@ -400,6 +432,7 @@ class TechModule:
         try:
             soup = BeautifulSoup(body, "html.parser")
             from bs4 import Comment
+
             for comment in soup.find_all(string=lambda t: isinstance(t, Comment)):
                 text = comment.strip()
                 if text and len(text) > 3:  # Skip trivial empty comments
@@ -421,7 +454,8 @@ class TechModule:
                 if key_name in name_lower and version.startswith(key_version):
                     await push_finding(
                         self.state.findings_queue,
-                        severity="HIGH", module="TECH",
+                        severity="HIGH",
+                        module="TECH",
                         title=f"EOL/Outdated: {tech.name} {version}",
                         detail=eol_message,
                         evidence=f"Detected via {tech.source}: {tech.name}/{version}",

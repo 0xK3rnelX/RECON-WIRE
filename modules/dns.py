@@ -9,16 +9,15 @@ import asyncio
 import ipaddress
 import logging
 import socket
-from dataclasses import dataclass, asdict, field
-from datetime import datetime
-from typing import Any, TYPE_CHECKING
+from dataclasses import asdict, dataclass, field
+from typing import TYPE_CHECKING, Any
 
 import dns.asyncresolver
+import dns.name
 import dns.query
 import dns.rdatatype
 import dns.resolver
 import dns.zone
-import dns.name
 import httpx
 
 from modules.findings import push_finding
@@ -222,18 +221,18 @@ class DNSModule:
         try:
             # Resolve NS hostname to IP first
             ns_ip = socket.gethostbyname(ns_host)
-            zone = dns.zone.from_xfr(
-                dns.query.xfr(ns_ip, self.domain, timeout=self.state.config.timeout)
-            )
+            zone = dns.zone.from_xfr(dns.query.xfr(ns_ip, self.domain, timeout=self.state.config.timeout))
             for name, node in zone.nodes.items():
                 for rdataset in node.rdatasets:
                     for rdata in rdataset:
-                        records.append({
-                            "name": str(name),
-                            "type": dns.rdatatype.to_text(rdataset.rdtype),
-                            "value": rdata.to_text(),
-                            "ns": ns_host,
-                        })
+                        records.append(
+                            {
+                                "name": str(name),
+                                "type": dns.rdatatype.to_text(rdataset.rdtype),
+                                "value": rdata.to_text(),
+                                "ns": ns_host,
+                            }
+                        )
         except Exception:
             pass  # Expected — most servers deny AXFR
         return records
@@ -247,7 +246,9 @@ class DNSModule:
         has_spf = any("v=spf1" in r.get("value", "").lower() for r in txt_records)
         if not has_spf:
             await push_finding(
-                q, severity="MEDIUM", module="DNS",
+                q,
+                severity="MEDIUM",
+                module="DNS",
                 title="Missing SPF Record",
                 detail="No SPF TXT record found — domain may be vulnerable to email spoofing",
                 evidence=f"Domain: {self.domain}",
@@ -258,7 +259,9 @@ class DNSModule:
             await self.resolver.resolve(f"_dmarc.{self.domain}", "TXT")
         except Exception:
             await push_finding(
-                q, severity="MEDIUM", module="DNS",
+                q,
+                severity="MEDIUM",
+                module="DNS",
                 title="Missing DMARC Record",
                 detail="No _dmarc TXT record found — email authentication incomplete",
                 evidence=f"Checked: _dmarc.{self.domain}",
@@ -267,7 +270,9 @@ class DNSModule:
         # Check for missing CAA
         if not results.get("CAA"):
             await push_finding(
-                q, severity="LOW", module="DNS",
+                q,
+                severity="LOW",
+                module="DNS",
                 title="Missing CAA Records",
                 detail="No CAA records restrict which CAs can issue certificates for this domain",
                 evidence=f"Domain: {self.domain}",
@@ -277,7 +282,9 @@ class DNSModule:
         for rec in results.get("A", []):
             if "PRIVATE_IP" in rec.get("flags", []):
                 await push_finding(
-                    q, severity="HIGH", module="DNS",
+                    q,
+                    severity="HIGH",
+                    module="DNS",
                     title="Private IP Address in DNS",
                     detail="A record resolves to a private/internal IP address",
                     evidence=f"{self.domain} → {rec['value']}",
@@ -286,10 +293,13 @@ class DNSModule:
         # Check for wildcard DNS
         try:
             import secrets
+
             wild_test = f"{secrets.token_hex(12)}.{self.domain}"
             await self.resolver.resolve(wild_test, "A")
             await push_finding(
-                q, severity="INFO", module="DNS",
+                q,
+                severity="INFO",
+                module="DNS",
                 title="Wildcard DNS Detected",
                 detail="Domain resolves arbitrary subdomains — may mask subdomain enumeration",
                 evidence=f"Tested: {wild_test}",
@@ -304,7 +314,9 @@ class DNSModule:
             for rec in recs:
                 if "LOW_TTL" in rec.get("flags", []):
                     await push_finding(
-                        q, severity="INFO", module="DNS",
+                        q,
+                        severity="INFO",
+                        module="DNS",
                         title="Suspiciously Low TTL",
                         detail=f"{rtype} record has TTL < 60s — possible fast-flux or CDN",
                         evidence=f"{rec['value']} TTL={rec.get('ttl', 'N/A')}",

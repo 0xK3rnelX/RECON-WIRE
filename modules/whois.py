@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime, timedelta
-from typing import Any, TYPE_CHECKING
+from datetime import datetime
+from typing import TYPE_CHECKING, Any
 
 import whois
 
@@ -61,7 +61,8 @@ class WHOISModule:
             logger.error("WHOIS module failed: %s", exc, exc_info=True)
             await push_finding(
                 self.state.findings_queue,
-                severity="INFO", module="WHOIS",
+                severity="INFO",
+                module="WHOIS",
                 title="WHOIS Lookup Failed",
                 detail=str(exc),
                 evidence=f"Domain: {self.domain}",
@@ -145,6 +146,7 @@ class WHOISModule:
 
         # Compute domain age
         from datetime import timezone
+
         now = datetime.now(timezone.utc)
         creation_raw = results.get("creation_date_raw")
         if isinstance(creation_raw, datetime):
@@ -178,21 +180,27 @@ class WHOISModule:
         if days_until is not None:
             if days_until < 0:
                 await push_finding(
-                    q, severity="CRITICAL", module="WHOIS",
+                    q,
+                    severity="CRITICAL",
+                    module="WHOIS",
                     title="Domain Has Expired",
                     detail=f"Domain expired {abs(days_until)} days ago — vulnerable to takeover",
                     evidence=f"Expiry: {results.get('expiration_date', 'N/A')}",
                 )
             elif days_until < 30:
                 await push_finding(
-                    q, severity="HIGH", module="WHOIS",
+                    q,
+                    severity="HIGH",
+                    module="WHOIS",
                     title="Domain Expiring Within 30 Days",
                     detail=f"Domain expires in {days_until} days — renew immediately",
                     evidence=f"Expiry: {results.get('expiration_date', 'N/A')}",
                 )
             elif days_until < 90:
                 await push_finding(
-                    q, severity="MEDIUM", module="WHOIS",
+                    q,
+                    severity="MEDIUM",
+                    module="WHOIS",
                     title="Domain Expiring Within 90 Days",
                     detail=f"Domain expires in {days_until} days — plan renewal",
                     evidence=f"Expiry: {results.get('expiration_date', 'N/A')}",
@@ -202,7 +210,9 @@ class WHOISModule:
         dnssec = results.get("dnssec", "unknown")
         if dnssec in ("unsigned", "unknown", ""):
             await push_finding(
-                q, severity="MEDIUM", module="WHOIS",
+                q,
+                severity="MEDIUM",
+                module="WHOIS",
                 title="DNSSEC Not Enabled",
                 detail="Domain does not have DNSSEC — vulnerable to DNS spoofing",
                 evidence=f"DNSSEC status: {dnssec}",
@@ -212,7 +222,9 @@ class WHOISModule:
         age_days = results.get("domain_age_days")
         if age_days is not None and age_days < 90:
             await push_finding(
-                q, severity="MEDIUM", module="WHOIS",
+                q,
+                severity="MEDIUM",
+                module="WHOIS",
                 title="Recently Registered Domain",
                 detail=f"Domain is only {age_days} days old — may indicate phishing or temporary site",
                 evidence=f"Created: {results.get('creation_date', 'N/A')}",
@@ -228,12 +240,21 @@ class WHOISModule:
         ]
         has_privacy = any(
             kw in str(all_contact_fields + emails + [org]).lower()
-            for kw in ["privacy", "redacted", "whoisguard", "domains by proxy",
-                       "contact privacy", "private", "data protected"]
+            for kw in [
+                "privacy",
+                "redacted",
+                "whoisguard",
+                "domains by proxy",
+                "contact privacy",
+                "private",
+                "data protected",
+            ]
         )
         if has_privacy:
             await push_finding(
-                q, severity="INFO", module="WHOIS",
+                q,
+                severity="INFO",
+                module="WHOIS",
                 title="WHOIS Privacy Protection Enabled",
                 detail="Registrant details are behind a privacy service",
                 evidence=f"Org: {org}, Emails: {', '.join(emails[:3])}",
@@ -244,7 +265,9 @@ class WHOISModule:
         hold_statuses = [s for s in statuses if "hold" in s.lower()]
         if hold_statuses:
             await push_finding(
-                q, severity="HIGH", module="WHOIS",
+                q,
+                severity="HIGH",
+                module="WHOIS",
                 title="Domain Has Hold Status",
                 detail=f"Domain has restrictive status: {', '.join(hold_statuses)}",
                 evidence=f"Statuses: {', '.join(statuses)}",

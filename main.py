@@ -4,8 +4,6 @@ import sys
 from app.cli import parse_and_validate
 from app.core import ReconWireApp
 
-
-
 _original_stdin_mode = None
 
 
@@ -74,6 +72,7 @@ def restore_terminal() -> None:
         return
     try:
         import ctypes
+
         kernel32 = ctypes.windll.kernel32
         h_in = kernel32.GetStdHandle(-10)
         if h_in and h_in != -1:
@@ -83,6 +82,7 @@ def restore_terminal() -> None:
                 kernel32.SetConsoleMode(h_in, _original_stdin_mode)
         # Flush msvcrt buffer if available
         import msvcrt
+
         while msvcrt.kbhit():
             msvcrt.getch()
     except Exception:
@@ -97,4 +97,3 @@ if __name__ == "__main__":
         app.run()
     finally:
         restore_terminal()
-

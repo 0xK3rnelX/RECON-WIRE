@@ -15,12 +15,10 @@ from __future__ import annotations
 
 import logging
 import re
-from dataclasses import dataclass, asdict
-from typing import TYPE_CHECKING
-from urllib.parse import urljoin
+from typing import TYPE_CHECKING, Any
 
 from modules.findings import push_finding
-from modules.stealth import build_client, apply_stealth_delay
+from modules.stealth import apply_stealth_delay, build_client
 
 if TYPE_CHECKING:
     from app.state import AppState

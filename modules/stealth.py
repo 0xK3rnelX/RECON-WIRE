@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import random
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import httpx
 

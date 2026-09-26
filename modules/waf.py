@@ -7,11 +7,11 @@ and probing with benign attack simulation tokens (SQLi / XSS probes).
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, asdict
-from typing import TYPE_CHECKING
+from dataclasses import asdict, dataclass
+from typing import TYPE_CHECKING, Any
 
 from modules.findings import push_finding
-from modules.stealth import build_client, apply_stealth_delay
+from modules.stealth import apply_stealth_delay, build_client
 
 if TYPE_CHECKING:
     from app.state import AppState
@@ -81,8 +81,8 @@ WAF_SIGNATURES: list[dict[str, Any]] = [
 class WAFResult:
     detected: bool
     name: str
-    confidence: str     # DEFINITIVE | HIGH | SUSPECTED
-    matched_vector: str # HEADER | SERVER | PROBE_BLOCK
+    confidence: str  # DEFINITIVE | HIGH | SUSPECTED
+    matched_vector: str  # HEADER | SERVER | PROBE_BLOCK
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -111,20 +111,31 @@ class WAFModule:
                 resp = await client.get(cfg.url)
                 headers_lower = {k.lower(): v.lower() for k, v in resp.headers.items()}
                 server_val = headers_lower.get("server", "")
-                body_lower = resp.text[:2000].lower()
+                resp.text[:2000].lower()
 
                 for sig in WAF_SIGNATURES:
                     name = sig["name"]
                     # Check headers
                     for h in sig.get("headers", []):
-                        if h.lower() in headers_lower or any(h.lower() in c.lower() for c in resp.cookies.keys()):
-                            detected_wafs.append(WAFResult(detected=True, name=name, confidence="DEFINITIVE", matched_vector=f"Header/Cookie: {h}"))
+                        if h.lower() in headers_lower or any(h.lower() in c.lower() for c in resp.cookies):
+                            detected_wafs.append(
+                                WAFResult(
+                                    detected=True,
+                                    name=name,
+                                    confidence="DEFINITIVE",
+                                    matched_vector=f"Header/Cookie: {h}",
+                                )
+                            )
                             break
 
                     # Check server header
                     for s in sig.get("server", []):
                         if s in server_val:
-                            detected_wafs.append(WAFResult(detected=True, name=name, confidence="HIGH", matched_vector=f"Server: {server_val}"))
+                            detected_wafs.append(
+                                WAFResult(
+                                    detected=True, name=name, confidence="HIGH", matched_vector=f"Server: {server_val}"
+                                )
+                            )
                             break
 
                 # 2. Active Probe Request (Non-destructive benign attack payload)
@@ -143,11 +154,25 @@ class WAFModule:
                             name = sig["name"]
                             for b in sig.get("body", []):
                                 if b.lower() in probe_body:
-                                    detected_wafs.append(WAFResult(detected=True, name=name, confidence="DEFINITIVE", matched_vector=f"Active Probe Block (HTTP {probe_code})"))
+                                    detected_wafs.append(
+                                        WAFResult(
+                                            detected=True,
+                                            name=name,
+                                            confidence="DEFINITIVE",
+                                            matched_vector=f"Active Probe Block (HTTP {probe_code})",
+                                        )
+                                    )
                                     matched = True
                                     break
                         if not matched and not detected_wafs:
-                            detected_wafs.append(WAFResult(detected=True, name="Generic / Custom WAF", confidence="HIGH", matched_vector=f"Blocked payload with HTTP {probe_code}"))
+                            detected_wafs.append(
+                                WAFResult(
+                                    detected=True,
+                                    name="Generic / Custom WAF",
+                                    confidence="HIGH",
+                                    matched_vector=f"Blocked payload with HTTP {probe_code}",
+                                )
+                            )
 
                 except Exception:
                     pass

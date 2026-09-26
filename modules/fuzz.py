@@ -7,12 +7,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING
 from urllib.parse import urljoin
 
 from modules.findings import push_finding
-from modules.stealth import build_client, apply_stealth_delay
+from modules.stealth import apply_stealth_delay, build_client
 
 if TYPE_CHECKING:
     from app.state import AppState
@@ -28,7 +28,6 @@ FUZZ_TARGETS: list[tuple[str, str, str]] = [
     ("/.gitignore", "LOW", "Git ignore definitions (discloses hidden paths)"),
     ("/.svn/entries", "CRITICAL", "Exposed Subversion (SVN) repository entries"),
     ("/.hg/hgrc", "CRITICAL", "Exposed Mercurial configuration"),
-
     # Environment & Cloud Credentials
     ("/.env", "CRITICAL", "Environment secrets file (.env)"),
     ("/.env.local", "CRITICAL", "Local environment overrides"),
@@ -39,7 +38,6 @@ FUZZ_TARGETS: list[tuple[str, str, str]] = [
     ("/.docker/config.json", "CRITICAL", "Docker registry authentication file"),
     ("/.ssh/id_rsa", "CRITICAL", "Leaked OpenSSH private key"),
     ("/id_rsa", "CRITICAL", "Leaked private key file"),
-
     # Database Dumps & SQL Archives
     ("/backup.sql", "CRITICAL", "Direct SQL database dump file"),
     ("/database.sql", "CRITICAL", "Full database export file"),
@@ -47,7 +45,6 @@ FUZZ_TARGETS: list[tuple[str, str, str]] = [
     ("/dump.sql", "CRITICAL", "Database dump export"),
     ("/users.sql", "CRITICAL", "User database dump"),
     ("/data.sql", "CRITICAL", "Application SQL data backup"),
-
     # Compressed Backup Archives
     ("/backup.zip", "HIGH", "Publicly accessible full archive backup"),
     ("/backup.tar.gz", "HIGH", "Gzip compressed backup archive"),
@@ -56,7 +53,6 @@ FUZZ_TARGETS: list[tuple[str, str, str]] = [
     ("/www.zip", "HIGH", "Web root archive export"),
     ("/archive.zip", "HIGH", "Compressed archive file"),
     ("/backup.7z", "HIGH", "7-Zip compressed archive"),
-
     # Application Configurations & Backups
     ("/wp-config.php.bak", "CRITICAL", "WordPress configuration backup file"),
     ("/wp-config.php~", "CRITICAL", "WordPress temporary configuration editor backup"),
@@ -66,7 +62,6 @@ FUZZ_TARGETS: list[tuple[str, str, str]] = [
     ("/config.yml", "MEDIUM", "Application YAML configuration file"),
     ("/appsettings.json", "HIGH", "ASP.NET Core settings & connection strings"),
     ("/web.config", "MEDIUM", "IIS ASP.NET application web configuration"),
-
     # Framework Actuators & Metrics
     ("/actuator/env", "CRITICAL", "Spring Boot Actuator environment (plaintext secrets)"),
     ("/actuator/health", "INFO", "Spring Boot Actuator health status"),
@@ -75,14 +70,12 @@ FUZZ_TARGETS: list[tuple[str, str, str]] = [
     ("/actuator/mappings", "MEDIUM", "Spring Boot endpoint route mappings"),
     ("/metrics", "INFO", "Prometheus application runtime metrics"),
     ("/prometheus", "INFO", "Prometheus telemetry exporter"),
-
     # API Documentation & Schema Exposures
     ("/swagger-ui.html", "LOW", "Swagger UI interactive API documentation"),
     ("/swagger/v1/swagger.json", "MEDIUM", "Swagger REST API schema specification"),
     ("/openapi.json", "MEDIUM", "OpenAPI JSON endpoint definitions"),
     ("/api-docs", "LOW", "Interactive API documentation"),
     ("/graphql", "LOW", "GraphQL query interface endpoint"),
-
     # Server Status & Diagnostic Info
     ("/phpinfo.php", "MEDIUM", "PHP configuration info disclosure"),
     ("/info.php", "MEDIUM", "PHP system info disclosure"),
@@ -91,7 +84,6 @@ FUZZ_TARGETS: list[tuple[str, str, str]] = [
     ("/robots.txt", "INFO", "Robots exclusion directive file"),
     ("/sitemap.xml", "INFO", "Sitemap index file"),
     ("/.well-known/security.txt", "INFO", "Security vulnerability contact policy file"),
-
     # Administrative Interfaces & Database Managers
     ("/admin/", "LOW", "Administrative interface portal"),
     ("/administrator/", "LOW", "Administrator login page"),
@@ -124,7 +116,9 @@ class FuzzModule:
     def __init__(self, state: AppState) -> None:
         self.state = state
 
-    async def _check_path(self, client, base_url: str, path: str, sev: str, desc: str, semaphore: asyncio.Semaphore) -> FuzzResult | None:
+    async def _check_path(
+        self, client, base_url: str, path: str, sev: str, desc: str, semaphore: asyncio.Semaphore
+    ) -> FuzzResult | None:
         async with semaphore:
             await apply_stealth_delay(self.state.config)
             full_url = urljoin(base_url, path)
@@ -184,10 +178,7 @@ class FuzzModule:
             async with build_client(cfg) as client:
                 # Set client base_url
                 client.base_url = cfg.url
-                tasks = [
-                    self._check_path(client, cfg.url, p, sev, desc, semaphore)
-                    for p, sev, desc in FUZZ_TARGETS
-                ]
+                tasks = [self._check_path(client, cfg.url, p, sev, desc, semaphore) for p, sev, desc in FUZZ_TARGETS]
                 raw = await asyncio.gather(*tasks, return_exceptions=True)
                 hits = [r for r in raw if isinstance(r, FuzzResult)]
         except Exception as exc:

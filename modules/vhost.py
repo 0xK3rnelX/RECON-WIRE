@@ -11,9 +11,8 @@ import asyncio
 import logging
 import re
 import socket
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING
-from urllib.parse import urlparse
 
 import httpx
 
@@ -28,64 +27,234 @@ logger = logging.getLogger("recon_wire.vhost")
 # Comprehensive enterprise virtual host candidate prefixes (100+ high-value targets)
 VHOST_PREFIXES: list[str] = [
     # Administration & Portals
-    "admin", "administrator", "root", "corp", "internal", "intranet", "portal",
-    "staff", "employee", "team", "dashboard", "panel", "console", "control",
-    "cpanel", "whm", "webmin", "cockpit", "superadmin", "manage", "management",
-    
+    "admin",
+    "administrator",
+    "root",
+    "corp",
+    "internal",
+    "intranet",
+    "portal",
+    "staff",
+    "employee",
+    "team",
+    "dashboard",
+    "panel",
+    "console",
+    "control",
+    "cpanel",
+    "whm",
+    "webmin",
+    "cockpit",
+    "superadmin",
+    "manage",
+    "management",
     # Development, Staging & QA
-    "dev", "develop", "development", "stage", "staging", "stg", "test", "testing",
-    "qa", "uat", "beta", "alpha", "sandbox", "preview", "demo", "lab", "poc",
-    "old", "new", "legacy", "v2", "v3", "temp", "tmp", "bak", "backup",
-    
+    "dev",
+    "develop",
+    "development",
+    "stage",
+    "staging",
+    "stg",
+    "test",
+    "testing",
+    "qa",
+    "uat",
+    "beta",
+    "alpha",
+    "sandbox",
+    "preview",
+    "demo",
+    "lab",
+    "poc",
+    "old",
+    "new",
+    "legacy",
+    "v2",
+    "v3",
+    "temp",
+    "tmp",
+    "bak",
+    "backup",
     # API & Microservices
-    "api", "api-dev", "api-stage", "api-internal", "api-v1", "api-v2", "api-v3",
-    "apis", "rest", "graphql", "grpc", "gateway", "apigateway", "proxy", "reverse-proxy",
-    "router", "ingress", "edge", "broker", "event", "events", "stream", "webhook", "webhooks",
-    
+    "api",
+    "api-dev",
+    "api-stage",
+    "api-internal",
+    "api-v1",
+    "api-v2",
+    "api-v3",
+    "apis",
+    "rest",
+    "graphql",
+    "grpc",
+    "gateway",
+    "apigateway",
+    "proxy",
+    "reverse-proxy",
+    "router",
+    "ingress",
+    "edge",
+    "broker",
+    "event",
+    "events",
+    "stream",
+    "webhook",
+    "webhooks",
     # Authentication & Access Control
-    "auth", "authentication", "login", "signin", "sso", "idp", "saml", "oauth",
-    "oauth2", "identity", "keycloak", "okta", "auth0", "cas", "iam", "account",
-    "accounts", "user", "users", "profile", "secure", "security", "pass", "vault",
-    
+    "auth",
+    "authentication",
+    "login",
+    "signin",
+    "sso",
+    "idp",
+    "saml",
+    "oauth",
+    "oauth2",
+    "identity",
+    "keycloak",
+    "okta",
+    "auth0",
+    "cas",
+    "iam",
+    "account",
+    "accounts",
+    "user",
+    "users",
+    "profile",
+    "secure",
+    "security",
+    "pass",
+    "vault",
     # Network, VPN & Remote Access
-    "vpn", "remote", "rdp", "ssh", "gateway", "connect", "access", "anyconnect",
-    "pulse", "wireguard", "openvpn", "citrix", "teleport", "bastion", "jump",
-    
+    "vpn",
+    "remote",
+    "rdp",
+    "ssh",
+    "gateway",
+    "connect",
+    "access",
+    "anyconnect",
+    "pulse",
+    "wireguard",
+    "openvpn",
+    "citrix",
+    "teleport",
+    "bastion",
+    "jump",
     # CI/CD, Repositories & Build
-    "git", "gitlab", "github", "bitbucket", "gitea", "gogs", "repo", "svn",
-    "jenkins", "ci", "cd", "bamboo", "teamcity", "circleci", "argo", "argocd",
-    "drone", "spinnaker", "sonar", "sonarqube", "nexus", "artifactory", "registry", "harbor",
-    
+    "git",
+    "gitlab",
+    "github",
+    "bitbucket",
+    "gitea",
+    "gogs",
+    "repo",
+    "svn",
+    "jenkins",
+    "ci",
+    "cd",
+    "bamboo",
+    "teamcity",
+    "circleci",
+    "argo",
+    "argocd",
+    "drone",
+    "spinnaker",
+    "sonar",
+    "sonarqube",
+    "nexus",
+    "artifactory",
+    "registry",
+    "harbor",
     # Container & Cloud Orchestration
-    "k8s", "kubernetes", "rancher", "docker", "swarm", "openshift", "nomad",
-    "consul", "istio", "traefik", "envoy", "kong", "mesh", "cluster",
-    
+    "k8s",
+    "kubernetes",
+    "rancher",
+    "docker",
+    "swarm",
+    "openshift",
+    "nomad",
+    "consul",
+    "istio",
+    "traefik",
+    "envoy",
+    "kong",
+    "mesh",
+    "cluster",
     # Monitoring, Logging & Telemetry
-    "monitor", "monitoring", "grafana", "kibana", "prometheus", "alertmanager",
-    "elastic", "elasticsearch", "opensearch", "jaeger", "zipkin", "zabbix",
-    "nagios", "datadog", "graylog", "splunk", "sentry", "status", "health",
-    
+    "monitor",
+    "monitoring",
+    "grafana",
+    "kibana",
+    "prometheus",
+    "alertmanager",
+    "elastic",
+    "elasticsearch",
+    "opensearch",
+    "jaeger",
+    "zipkin",
+    "zabbix",
+    "nagios",
+    "datadog",
+    "graylog",
+    "splunk",
+    "sentry",
+    "status",
+    "health",
     # Databases & Storage
-    "db", "database", "sql", "mysql", "postgres", "postgresql", "mongo", "mongodb",
-    "redis", "memcached", "couchdb", "neo4j", "influxdb", "clickhouse",
-    "phpmyadmin", "pma", "adminer", "pgadmin", "storage", "s3", "minio", "bucket",
-    
+    "db",
+    "database",
+    "sql",
+    "mysql",
+    "postgres",
+    "postgresql",
+    "mongo",
+    "mongodb",
+    "redis",
+    "memcached",
+    "couchdb",
+    "neo4j",
+    "influxdb",
+    "clickhouse",
+    "phpmyadmin",
+    "pma",
+    "adminer",
+    "pgadmin",
+    "storage",
+    "s3",
+    "minio",
+    "bucket",
     # Communications & Productivity
-    "mail", "webmail", "email", "exchange", "owa", "roundcube", "zimbra", "smtp",
-    "confluence", "jira", "wiki", "docs", "chat", "mattermost", "slack", "rocketchat"
+    "mail",
+    "webmail",
+    "email",
+    "exchange",
+    "owa",
+    "roundcube",
+    "zimbra",
+    "smtp",
+    "confluence",
+    "jira",
+    "wiki",
+    "docs",
+    "chat",
+    "mattermost",
+    "slack",
+    "rocketchat",
 ]
 
 
 @dataclass
 class VHostResult:
     """Represents a discovered virtual host responding distinctly on the server IP."""
+
     host: str
     ip: str
     status_code: int
     content_length: int
     title: str
-    diff_type: str           # STATUS_CODE | LENGTH_DIFF | TITLE_DIFF
-    confidence: str          # HIGH | MEDIUM
+    diff_type: str  # STATUS_CODE | LENGTH_DIFF | TITLE_DIFF
+    confidence: str  # HIGH | MEDIUM
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -159,12 +328,11 @@ class VHostModule:
                 verify=False,
                 timeout=cfg.timeout,
                 follow_redirects=False,
-                limits=httpx.Limits(max_keepalive_connections=10, max_connections=20)
+                limits=httpx.Limits(max_keepalive_connections=10, max_connections=20),
             ) as client:
-
                 # 3. Establish Baseline Response with non-existent host header
                 baseline_resp = None
-                for candidate_scheme in ([scheme, "http"] if scheme == "https" else [scheme]):
+                for candidate_scheme in [scheme, "http"] if scheme == "https" else [scheme]:
                     candidate_port = port_str if candidate_scheme == scheme else ""
                     test_probe_url = f"{candidate_scheme}://{target_ip}{candidate_port}/"
                     try:
@@ -203,7 +371,7 @@ class VHostModule:
                                 headers={
                                     "Host": host_cand,
                                     "X-Forwarded-Host": host_cand,
-                                }
+                                },
                             )
                             c_status = resp.status_code
                             c_len = len(resp.content)
@@ -229,15 +397,17 @@ class VHostModule:
                                 conf = "MEDIUM"
 
                             if diff_type:
-                                results.append(VHostResult(
-                                    host=host_cand,
-                                    ip=target_ip,
-                                    status_code=c_status,
-                                    content_length=c_len,
-                                    title=c_title or "—",
-                                    diff_type=diff_type,
-                                    confidence=conf,
-                                ))
+                                results.append(
+                                    VHostResult(
+                                        host=host_cand,
+                                        ip=target_ip,
+                                        status_code=c_status,
+                                        content_length=c_len,
+                                        title=c_title or "—",
+                                        diff_type=diff_type,
+                                        confidence=conf,
+                                    )
+                                )
                         except Exception:
                             pass
                         finally:

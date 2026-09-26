@@ -7,11 +7,11 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING
 
 from modules.findings import push_finding
-from modules.stealth import build_client, apply_stealth_delay
+from modules.stealth import apply_stealth_delay, build_client
 
 if TYPE_CHECKING:
     from app.state import AppState
@@ -21,10 +21,10 @@ logger = logging.getLogger("recon_wire.cloud")
 
 @dataclass
 class CloudResult:
-    provider: str      # AWS | GCP | AZURE
+    provider: str  # AWS | GCP | AZURE
     bucket_name: str
     url: str
-    status: str        # OPEN | PROTECTED | NOT_FOUND
+    status: str  # OPEN | PROTECTED | NOT_FOUND
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -36,7 +36,9 @@ class CloudModule:
     def __init__(self, state: AppState) -> None:
         self.state = state
 
-    async def _check_bucket(self, client, provider: str, bucket: str, url: str, semaphore: asyncio.Semaphore) -> CloudResult | None:
+    async def _check_bucket(
+        self, client, provider: str, bucket: str, url: str, semaphore: asyncio.Semaphore
+    ) -> CloudResult | None:
         async with semaphore:
             await apply_stealth_delay(self.state.config)
             try:
@@ -133,10 +135,7 @@ class CloudModule:
 
         try:
             async with build_client(cfg) as client:
-                tasks = [
-                    self._check_bucket(client, prov, b_name, url, semaphore)
-                    for prov, b_name, url in targets
-                ]
+                tasks = [self._check_bucket(client, prov, b_name, url, semaphore) for prov, b_name, url in targets]
                 raw = await asyncio.gather(*tasks, return_exceptions=True)
                 results = [r for r in raw if isinstance(r, CloudResult)]
         except Exception as exc:

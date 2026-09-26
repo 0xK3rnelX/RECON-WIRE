@@ -6,7 +6,7 @@ import os
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from rich.text import Text
+    pass
 
 BANNER_LINES: list[str] = [
     "██████╗ ███████╗ ██████╗ ██████╗ ███╗   ██╗      ██╗    ██╗██╗██████╗ ███████╗",
@@ -18,8 +18,8 @@ BANNER_LINES: list[str] = [
 ]
 
 # Ensure each line is padded to identical width (78 chars) so ASCII characters never skew
-MAX_LINE_LEN = max(len(l) for l in BANNER_LINES)
-BANNER_LINES = [l.ljust(MAX_LINE_LEN) for l in BANNER_LINES]
+MAX_LINE_LEN = max(len(line) for line in BANNER_LINES)
+BANNER_LINES = [line.ljust(MAX_LINE_LEN) for line in BANNER_LINES]
 
 AUTHOR_LINE = (
     "Web Reconnaissance Suite  |  "
@@ -46,8 +46,8 @@ def purpleblue(text: str) -> str:
 def get_banner_renderable():
     """Returns a Rich renderable with perfect rigid grid alignment centered horizontally."""
     from rich.align import Align
-    from rich.text import Text
     from rich.console import Group
+    from rich.text import Text
 
     # 1. Rigid banner block
     banner_markup = get_banner_string()
@@ -75,6 +75,3 @@ def get_banner_string() -> str:
         red = max(0, red - step)
 
     return "\n".join(lines)
-
-
-

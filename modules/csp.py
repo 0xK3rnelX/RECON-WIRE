@@ -8,10 +8,10 @@ known JSONP/CDN script gadget bypass vectors.
 
 from __future__ import annotations
 
+import contextlib
 import logging
-import re
-from dataclasses import dataclass, asdict, field
-from typing import TYPE_CHECKING, Any
+from dataclasses import asdict, dataclass, field
+from typing import TYPE_CHECKING
 
 from modules.findings import push_finding
 from modules.stealth import build_client
@@ -50,7 +50,8 @@ GADGET_CDNS: dict[str, str] = {
 @dataclass
 class CSPFlaw:
     """A detected CSP misconfiguration or bypass opportunity."""
-    severity: str        # CRITICAL | HIGH | MEDIUM | LOW | INFO
+
+    severity: str  # CRITICAL | HIGH | MEDIUM | LOW | INFO
     directive: str
     issue: str
     impact: str
@@ -63,6 +64,7 @@ class CSPFlaw:
 @dataclass
 class CSPResult:
     """Structured evaluation of a site's Content Security Policy."""
+
     raw_csp: str
     report_only: bool
     score: int
@@ -110,13 +112,15 @@ class CSPModule:
 
         if report_only:
             score -= 15
-            flaws.append(CSPFlaw(
-                severity="MEDIUM",
-                directive="Content-Security-Policy-Report-Only",
-                issue="Policy is in Report-Only mode",
-                impact="Violations are logged but malicious payloads are NOT blocked by the browser",
-                recommendation="Enforce the policy using Content-Security-Policy header",
-            ))
+            flaws.append(
+                CSPFlaw(
+                    severity="MEDIUM",
+                    directive="Content-Security-Policy-Report-Only",
+                    issue="Policy is in Report-Only mode",
+                    impact="Violations are logged but malicious payloads are NOT blocked by the browser",
+                    recommendation="Enforce the policy using Content-Security-Policy header",
+                )
+            )
 
         # Check default-src / script-src existence
         has_default = "default-src" in directives
@@ -124,135 +128,159 @@ class CSPModule:
 
         if not has_default and not has_script:
             score -= 30
-            flaws.append(CSPFlaw(
-                severity="HIGH",
-                directive="script-src",
-                issue="Missing both default-src and script-src directives",
-                impact="Scripts can be loaded from arbitrary origins, negating XSS protection",
-                recommendation="Define default-src 'none' or explicit script-src origins",
-            ))
+            flaws.append(
+                CSPFlaw(
+                    severity="HIGH",
+                    directive="script-src",
+                    issue="Missing both default-src and script-src directives",
+                    impact="Scripts can be loaded from arbitrary origins, negating XSS protection",
+                    recommendation="Define default-src 'none' or explicit script-src origins",
+                )
+            )
 
         # Inspect script-src specifically
-        script_sources = directives.get("script-src", directives.get("script-src-elem", directives.get("default-src", [])))
-        script_str = " ".join(script_sources).lower()
+        script_sources = directives.get(
+            "script-src", directives.get("script-src-elem", directives.get("default-src", []))
+        )
+        " ".join(script_sources).lower()
 
         # 1. Wildcard script execution
         if "*" in script_sources:
             score -= 30
-            flaws.append(CSPFlaw(
-                severity="HIGH",
-                directive="script-src",
-                issue="Wildcard (*) origin allowed in script-src",
-                impact="Attacker can load scripts from any public server on the internet",
-                recommendation="Remove wildcard and restrict to specific trusted domains or hashes/nonces",
-            ))
+            flaws.append(
+                CSPFlaw(
+                    severity="HIGH",
+                    directive="script-src",
+                    issue="Wildcard (*) origin allowed in script-src",
+                    impact="Attacker can load scripts from any public server on the internet",
+                    recommendation="Remove wildcard and restrict to specific trusted domains or hashes/nonces",
+                )
+            )
             bypass_vectors.append("Wildcard origin allows arbitrary external script loading")
 
         # 2. Scheme-only sources (http:, https:, data:)
         if "data:" in script_sources:
             score -= 25
-            flaws.append(CSPFlaw(
-                severity="HIGH",
-                directive="script-src",
-                issue="'data:' URI scheme allowed in script-src",
-                impact="Enables trivial XSS injection via data:text/javascript URLs",
-                recommendation="Remove 'data:' from script-src",
-            ))
+            flaws.append(
+                CSPFlaw(
+                    severity="HIGH",
+                    directive="script-src",
+                    issue="'data:' URI scheme allowed in script-src",
+                    impact="Enables trivial XSS injection via data:text/javascript URLs",
+                    recommendation="Remove 'data:' from script-src",
+                )
+            )
             bypass_vectors.append("data: URI scheme enables direct inline payload execution")
 
         if "http:" in script_sources:
             score -= 15
-            flaws.append(CSPFlaw(
-                severity="MEDIUM",
-                directive="script-src",
-                issue="Plain 'http:' scheme allowed in script-src",
-                impact="Allows Man-In-The-Middle (MITM) code injection over unencrypted connections",
-                recommendation="Enforce HTTPS-only origins",
-            ))
+            flaws.append(
+                CSPFlaw(
+                    severity="MEDIUM",
+                    directive="script-src",
+                    issue="Plain 'http:' scheme allowed in script-src",
+                    impact="Allows Man-In-The-Middle (MITM) code injection over unencrypted connections",
+                    recommendation="Enforce HTTPS-only origins",
+                )
+            )
 
         # 3. 'unsafe-inline' without nonce or hash
         has_nonce_or_hash = any(s.startswith(("'nonce-", "'sha256-", "'sha384-", "'sha512-")) for s in script_sources)
         if "'unsafe-inline'" in script_sources and not has_nonce_or_hash:
             score -= 25
-            flaws.append(CSPFlaw(
-                severity="HIGH",
-                directive="script-src",
-                issue="'unsafe-inline' enabled without nonces or hashes",
-                impact="Inline <script> blocks and event handlers (onload, onerror) execute directly, disabling XSS defense",
-                recommendation="Migrate to cryptographic nonces ('nonce-...') or SHA-256 hashes",
-            ))
+            flaws.append(
+                CSPFlaw(
+                    severity="HIGH",
+                    directive="script-src",
+                    issue="'unsafe-inline' enabled without nonces or hashes",
+                    impact="Inline <script> blocks and event handlers (onload, onerror) execute directly, disabling XSS defense",
+                    recommendation="Migrate to cryptographic nonces ('nonce-...') or SHA-256 hashes",
+                )
+            )
             bypass_vectors.append("Direct inline JavaScript execution allowed via 'unsafe-inline'")
 
         # 4. 'unsafe-eval'
         if "'unsafe-eval'" in script_sources:
             score -= 15
-            flaws.append(CSPFlaw(
-                severity="MEDIUM",
-                directive="script-src",
-                issue="'unsafe-eval' permitted in script-src",
-                impact="Allows string evaluation functions (eval, Function(), setTimeout(str)) which can be weaponized in DOM XSS",
-                recommendation="Refactor application logic to avoid dynamic string code evaluation",
-            ))
+            flaws.append(
+                CSPFlaw(
+                    severity="MEDIUM",
+                    directive="script-src",
+                    issue="'unsafe-eval' permitted in script-src",
+                    impact="Allows string evaluation functions (eval, Function(), setTimeout(str)) which can be weaponized in DOM XSS",
+                    recommendation="Refactor application logic to avoid dynamic string code evaluation",
+                )
+            )
             bypass_vectors.append("eval() and string execution gadgets allowed")
 
         # 5. Check Gadget CDNs / JSONP endpoints in script-src
         for domain, desc in GADGET_CDNS.items():
             if any(domain in src.lower() for src in script_sources):
                 score -= 10
-                flaws.append(CSPFlaw(
-                    severity="MEDIUM",
-                    directive="script-src",
-                    issue=f"Known gadget CDN allowed: {domain}",
-                    impact=desc,
-                    recommendation=f"Restrict path or host scripts locally instead of trusting {domain}",
-                ))
+                flaws.append(
+                    CSPFlaw(
+                        severity="MEDIUM",
+                        directive="script-src",
+                        issue=f"Known gadget CDN allowed: {domain}",
+                        impact=desc,
+                        recommendation=f"Restrict path or host scripts locally instead of trusting {domain}",
+                    )
+                )
                 bypass_vectors.append(f"Gadget / JSONP bypass via {domain} ({desc})")
 
         # 6. object-src restriction
         obj_sources = directives.get("object-src", directives.get("default-src", []))
         if "'none'" not in obj_sources:
             score -= 15
-            flaws.append(CSPFlaw(
-                severity="MEDIUM",
-                directive="object-src",
-                issue="object-src is not set to 'none'",
-                impact="Allows malicious Flash, Silverlight, or Java applet execution",
-                recommendation="Explicitly add: object-src 'none'",
-            ))
+            flaws.append(
+                CSPFlaw(
+                    severity="MEDIUM",
+                    directive="object-src",
+                    issue="object-src is not set to 'none'",
+                    impact="Allows malicious Flash, Silverlight, or Java applet execution",
+                    recommendation="Explicitly add: object-src 'none'",
+                )
+            )
 
         # 7. base-uri restriction
         if "base-uri" not in directives:
             score -= 10
-            flaws.append(CSPFlaw(
-                severity="LOW",
-                directive="base-uri",
-                issue="Missing base-uri directive",
-                impact="Vulnerable to HTML <base> tag injection, hijacking relative script references",
-                recommendation="Add: base-uri 'self' or 'none'",
-            ))
+            flaws.append(
+                CSPFlaw(
+                    severity="LOW",
+                    directive="base-uri",
+                    issue="Missing base-uri directive",
+                    impact="Vulnerable to HTML <base> tag injection, hijacking relative script references",
+                    recommendation="Add: base-uri 'self' or 'none'",
+                )
+            )
             bypass_vectors.append("Base tag injection possible due to missing base-uri")
 
         # 8. frame-ancestors (clickjacking defense)
         if "frame-ancestors" not in directives:
             score -= 10
-            flaws.append(CSPFlaw(
-                severity="LOW",
-                directive="frame-ancestors",
-                issue="Missing frame-ancestors directive",
-                impact="Clickjacking defense relies solely on legacy X-Frame-Options",
-                recommendation="Add: frame-ancestors 'self' or 'none'",
-            ))
+            flaws.append(
+                CSPFlaw(
+                    severity="LOW",
+                    directive="frame-ancestors",
+                    issue="Missing frame-ancestors directive",
+                    impact="Clickjacking defense relies solely on legacy X-Frame-Options",
+                    recommendation="Add: frame-ancestors 'self' or 'none'",
+                )
+            )
 
         # 9. form-action
         if "form-action" not in directives:
             score -= 5
-            flaws.append(CSPFlaw(
-                severity="LOW",
-                directive="form-action",
-                issue="Missing form-action directive",
-                impact="Form submissions are not restricted and can be rewritten to external malicious targets",
-                recommendation="Add: form-action 'self'",
-            ))
+            flaws.append(
+                CSPFlaw(
+                    severity="LOW",
+                    directive="form-action",
+                    issue="Missing form-action directive",
+                    impact="Form submissions are not restricted and can be rewritten to external malicious targets",
+                    recommendation="Add: form-action 'self'",
+                )
+            )
 
         # Calculate grade
         score = max(0, min(100, score))
@@ -312,10 +340,8 @@ class CSPModule:
                         resp = await client.get(cfg.url)
                     except Exception:
                         if cfg.url.startswith("https://"):
-                            try:
+                            with contextlib.suppress(Exception):
                                 resp = await client.get(cfg.url.replace("https://", "http://", 1))
-                            except Exception:
-                                pass
                     if resp:
                         for k, v in resp.headers.items():
                             if k.lower() == "content-security-policy":

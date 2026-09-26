@@ -7,16 +7,14 @@ Renders live intercept stream, metadata, status indicators, and outputs full for
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime
+import contextlib
 import logging
-import os
-from pathlib import Path
 import sys
 import time
-from typing import TYPE_CHECKING, Any
+from datetime import datetime
+from pathlib import Path
 
-from rich.box import SQUARE, ROUNDED
-from rich.align import Align
+from rich.box import ROUNDED
 from rich.console import Console, Group
 from rich.live import Live
 from rich.markup import escape
@@ -24,39 +22,38 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
+from app.export import export_json, export_markdown, export_sarif, export_text
 from app.state import AppState, ScanConfig
-from modules.dns import DNSModule
-from modules.subdomain import SubdomainModule
-from modules.header import HeaderModule
-from modules.tech import TechModule
-from modules.whois import WHOISModule
-from modules.tls import TLSModule
-from modules.ports import PortModule
-from modules.endpoints import EndpointModule
-from modules.fuzz import FuzzModule
-from modules.cloud import CloudModule
-from modules.takeover import TakeoverModule
-from modules.harvest import HarvestModule
-from modules.waf import WAFModule
 from modules.asn import ASNModule
-from modules.params import ParamModule
+from modules.cloud import CloudModule
 from modules.csp import CSPModule
-from modules.vhost import VHostModule
+from modules.dns import DNSModule
+from modules.endpoints import EndpointModule
 from modules.findings import FindingsAggregator
-
-
+from modules.fuzz import FuzzModule
+from modules.harvest import HarvestModule
+from modules.header import HeaderModule
+from modules.params import ParamModule
+from modules.ports import PortModule
+from modules.subdomain import SubdomainModule
+from modules.takeover import TakeoverModule
+from modules.tech import TechModule
+from modules.tls import TLSModule
+from modules.vhost import VHostModule
+from modules.waf import WAFModule
+from modules.whois import WHOISModule
 from ui.banner import get_banner_renderable
-from app.export import export_json, export_markdown, export_text, export_sarif
-
 
 logger = logging.getLogger("recon_wire")
 
 # Configure file logging
 _log_handler = logging.FileHandler("recon_wire.log", mode="w", encoding="utf-8")
-_log_handler.setFormatter(logging.Formatter(
-    "%(asctime)s  %(name)-30s  %(levelname)-8s  %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-))
+_log_handler.setFormatter(
+    logging.Formatter(
+        "%(asctime)s  %(name)-30s  %(levelname)-8s  %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+)
 logging.getLogger("recon_wire").addHandler(_log_handler)
 logging.getLogger("recon_wire").setLevel(logging.DEBUG)
 
@@ -69,20 +66,17 @@ class ReconWireApp:
         if sys.platform == "win32":
             try:
                 import ctypes
+
                 ctypes.windll.kernel32.SetConsoleOutputCP(65001)
                 ctypes.windll.kernel32.SetConsoleCP(65001)
             except Exception:
                 pass
         if hasattr(sys.stdout, "reconfigure"):
-            try:
+            with contextlib.suppress(Exception):
                 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-            except Exception:
-                pass
         if hasattr(sys.stderr, "reconfigure"):
-            try:
+            with contextlib.suppress(Exception):
                 sys.stderr.reconfigure(encoding="utf-8", errors="replace")
-            except Exception:
-                pass
 
         self.state = AppState(config=config)
         self.console = Console(force_terminal=True, highlight=False)
@@ -139,8 +133,6 @@ class ReconWireApp:
             return f"[bold #00e5ff]{m:<7}[/bold #00e5ff]"
         return f"[bold #e6edf3]{m:<7}[/bold #e6edf3]"
 
-
-
     def _format_code(self, code: str) -> str:
         """Format status or response code with authentic terminal colors."""
         c = code.upper()
@@ -167,17 +159,23 @@ class ReconWireApp:
 
         # ── Header bar with pulse indicator ──
         pulse = "◈" if (int(time.time() * 2) % 2 == 0) else "◇"
-        status_text = "[bold #00ffcc]SYSTEM SCANNING[/bold #00ffcc]" if not self.state.scan_complete else "[bold #39d353]ALL VECTORS COMPLETE[/bold #39d353]"
-        header_text = Text.from_markup(f"[bold #00e5ff]RECON-WIRE[/bold #00e5ff] [bold #ff79c6]v1.0[/bold #ff79c6] │ {status_text} [bold #00ffcc]{pulse}[/bold #00ffcc] │ [bold #ffffff]{elapsed_str}[/bold #ffffff]")
+        status_text = (
+            "[bold #00ffcc]SYSTEM SCANNING[/bold #00ffcc]"
+            if not self.state.scan_complete
+            else "[bold #39d353]ALL VECTORS COMPLETE[/bold #39d353]"
+        )
+        header_text = Text.from_markup(
+            f"[bold #00e5ff]RECON-WIRE[/bold #00e5ff] [bold #ff79c6]v1.0[/bold #ff79c6] │ {status_text} [bold #00ffcc]{pulse}[/bold #00ffcc] │ [bold #ffffff]{elapsed_str}[/bold #ffffff]"
+        )
 
         # ── Target Overview & Recon HUD ──
         dns_count = sum(len(v) for v in self.state.dns_results.values() if isinstance(v, list))
         subs_count = len(self.state.subdomain_results)
         findings_count = len(self.state.findings)
-        tech_count = len(self.state.tech_results)
+        len(self.state.tech_results)
         ports_count = len(self.state.port_results)
         ep_count = len(self.state.endpoint_results)
-        fuzz_count = len(self.state.fuzz_results)
+        len(self.state.fuzz_results)
         req_count = max(self._req_count, subs_count * 2 + ports_count + ep_count + 10)
 
         overview = Table.grid(expand=True)
@@ -230,7 +228,9 @@ class ReconWireApp:
             stream.add_row("", "", "", "", "")
 
         # ── Signal Metrics & Telemetry Bar ──
-        sparkline = "".join(self._sparkline_frames[val % len(self._sparkline_frames)] for val in self._sparkline_history)
+        sparkline = "".join(
+            self._sparkline_frames[val % len(self._sparkline_frames)] for val in self._sparkline_history
+        )
 
         metrics_grid = Table.grid(expand=True)
         metrics_grid.add_column(ratio=1)
@@ -247,7 +247,6 @@ class ReconWireApp:
         metrics_right = f"[#8b949e]ACTIVITY:[/#8b949e] [bold #00ffcc]{sparkline}[/bold #00ffcc]"
         metrics_grid.add_row(metrics_left, metrics_right)
 
-
         metrics_panel = Panel(
             metrics_grid,
             border_style="#30363d",
@@ -255,7 +254,11 @@ class ReconWireApp:
             style="on #0d1117",
         )
 
-        footer_text = Text("Press 'q' or Ctrl+C to halt stream & display detailed report in terminal", style="#8b949e", justify="center")
+        footer_text = Text(
+            "Press 'q' or Ctrl+C to halt stream & display detailed report in terminal",
+            style="#8b949e",
+            justify="center",
+        )
 
         content = Group(
             overview_panel,
@@ -290,7 +293,6 @@ class ReconWireApp:
         seen_asn = False
         seen_csp = False
 
-
         while not self._stop_requested:
             # Check DNS
             for rtype, records in list(self.state.dns_results.items()):
@@ -309,7 +311,9 @@ class ReconWireApp:
                 sub = sub_results[processed_subs]
                 processed_subs += 1
                 status = str(sub.status_code) if sub.status_code else ("200" if sub.is_live else "404")
-                self._add_event(method="GET", code=status, detail=f"{sub.subdomain} [{'live' if sub.is_live else 'down'}]")
+                self._add_event(
+                    method="GET", code=status, detail=f"{sub.subdomain} [{'live' if sub.is_live else 'down'}]"
+                )
                 self._req_count += 1
                 self._resp_count += 1
 
@@ -319,7 +323,9 @@ class ReconWireApp:
                 t = tech_results[processed_tech]
                 processed_tech += 1
                 name = getattr(t, "name", t.get("name") if isinstance(t, dict) else str(t))
-                ver = getattr(t, "version", t.get("version", "")) if isinstance(t, dict) or hasattr(t, "version") else ""
+                ver = (
+                    getattr(t, "version", t.get("version", "")) if isinstance(t, dict) or hasattr(t, "version") else ""
+                )
                 self._add_event(method="TECH", code="FOUND", detail=f"{name} {ver}".strip())
                 self._resp_count += 1
 
@@ -351,7 +357,9 @@ class ReconWireApp:
             while processed_ports < len(self.state.port_results):
                 p = self.state.port_results[processed_ports]
                 processed_ports += 1
-                self._add_event(method="PORT", code=str(p.port), detail=f"{p.service} open on {self.scan_config.hostname}")
+                self._add_event(
+                    method="PORT", code=str(p.port), detail=f"{p.service} open on {self.scan_config.hostname}"
+                )
                 self._req_count += 1
                 self._resp_count += 1
 
@@ -388,7 +396,11 @@ class ReconWireApp:
             while processed_waf < len(self.state.waf_results):
                 w = self.state.waf_results[processed_waf]
                 processed_waf += 1
-                self._add_event(method="WAF", code="BLOCK" if "Probe" in w.matched_vector else "DETECT", detail=f"{w.name} ({w.confidence})")
+                self._add_event(
+                    method="WAF",
+                    code="BLOCK" if "Probe" in w.matched_vector else "DETECT",
+                    detail=f"{w.name} ({w.confidence})",
+                )
                 self._resp_count += 1
 
             # Check Harvested Secrets
@@ -403,7 +415,11 @@ class ReconWireApp:
             if not seen_asn and self.state.asn_results.get("networks"):
                 seen_asn = True
                 first_net = self.state.asn_results["networks"][0]
-                self._add_event(method="ASN", code=str(first_net.get("asn", "BGP"))[:4], detail=f"{first_net.get('asn_org', '')} [{first_net.get('bgp_prefix', '')}]")
+                self._add_event(
+                    method="ASN",
+                    code=str(first_net.get("asn", "BGP"))[:4],
+                    detail=f"{first_net.get('asn_org', '')} [{first_net.get('bgp_prefix', '')}]",
+                )
                 self._resp_count += 1
 
             # Check Parameters (PD-1)
@@ -417,7 +433,11 @@ class ReconWireApp:
             if not seen_csp and self.state.csp_results:
                 seen_csp = True
                 csp_item = self.state.csp_results[0]
-                self._add_event(method="CSP", code=f"GRD_{csp_item.grade}", detail=f"Score: {csp_item.score}/100 | Flaws: {len(csp_item.flaws)}")
+                self._add_event(
+                    method="CSP",
+                    code=f"GRD_{csp_item.grade}",
+                    detail=f"Score: {csp_item.score}/100 | Flaws: {len(csp_item.flaws)}",
+                )
                 self._resp_count += 1
 
             # Check Virtual Hosts (PC-2)
@@ -428,8 +448,6 @@ class ReconWireApp:
                 self._resp_count += 1
 
             await asyncio.sleep(0.1)
-
-
 
     async def _run_modules_async(self) -> None:
         """Run all active recon modules concurrently with task management."""
@@ -501,27 +519,24 @@ class ReconWireApp:
             tasks.append(VHostModule(self.state).run())
             names.append("VHOST")
 
-
         aggregator = FindingsAggregator(self.state)
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        for name, res in zip(names, results):
+        for name, res in zip(names, results, strict=False):
             if isinstance(res, Exception):
                 logger.error("Module %s raised: %s", name, res, exc_info=res)
 
-
         self.state.scan_complete = True
-        try:
+        with contextlib.suppress(asyncio.TimeoutError):
             await asyncio.wait_for(aggregator.consume(), timeout=3.0)
-        except asyncio.TimeoutError:
-            pass
 
     async def _keyboard_listener(self) -> None:
         """Non-blocking keyboard listener for 'q' or Ctrl+C on Windows."""
         if sys.platform == "win32":
             try:
                 import msvcrt
+
                 while not self._stop_requested:
                     if msvcrt.kbhit():
                         char = msvcrt.getch()
@@ -534,7 +549,6 @@ class ReconWireApp:
                     await asyncio.sleep(0.1)
             except Exception:
                 pass
-
 
     async def _main_loop(self) -> None:
         """Main async loop running Live UI and modules."""
@@ -651,7 +665,9 @@ class ReconWireApp:
                     conf = getattr(t, "confidence", "HIGH")
                     cat = getattr(t, "category", "General")
                 conf_color = "green" if conf == "HIGH" else "yellow"
-                tech_table.add_row(escape(str(name)), escape(str(ver)), f"[{conf_color}]{conf}[/{conf_color}]", escape(str(cat)))
+                tech_table.add_row(
+                    escape(str(name)), escape(str(ver)), f"[{conf_color}]{conf}[/{conf_color}]", escape(str(cat))
+                )
             c.print(tech_table)
 
         # ── 5. Security Headers ──
@@ -660,10 +676,12 @@ class ReconWireApp:
             score = hdr_res.get("score")
             grade = hdr_res.get("grade")
             if score is not None:
-                grade_color = {"A": "green", "B": "green", "C": "yellow", "D": "red", "F": "bold red"}.get(grade, "white")
+                grade_color = {"A": "green", "B": "green", "C": "yellow", "D": "red", "F": "bold red"}.get(
+                    grade, "white"
+                )
                 bar_filled = int(score / 100 * 30)
                 score_bar = "█" * bar_filled + "░" * (30 - bar_filled)
-                c.print(f"\n[bold #00ff66]HTTP SECURITY HEADERS[/bold #00ff66]")
+                c.print("\n[bold #00ff66]HTTP SECURITY HEADERS[/bold #00ff66]")
                 c.print(f"  Score: [{grade_color}][{score_bar}] {score}/100  Grade: {grade}[/{grade_color}]")
 
             audit = hdr_res.get("security_audit", [])
@@ -674,7 +692,11 @@ class ReconWireApp:
                 audit_table.add_column("VALUE / ISSUES", ratio=2, style="#8b949e")
 
                 for entry in audit:
-                    status_badge = "[bold #00ff66]✓ PASS[/bold #00ff66]" if entry["present"] and not entry["issues"] else "[bold #ff4444]✗ MISSING[/bold #ff4444]"
+                    status_badge = (
+                        "[bold #00ff66]✓ PASS[/bold #00ff66]"
+                        if entry["present"] and not entry["issues"]
+                        else "[bold #ff4444]✗ MISSING[/bold #ff4444]"
+                    )
                     issues = "; ".join(entry.get("issues", [])) or (entry.get("value") or "—")
                     audit_table.add_row(status_badge, escape(entry["header"]), escape(issues[:80]))
                 c.print(audit_table)
@@ -688,7 +710,9 @@ class ReconWireApp:
             tls_table.add_column("Value", style="#e6edf3")
             tls_table.add_row("Subject CN", escape(str(tls_res.get("subject_cn", "N/A"))))
             tls_table.add_row("Issuer CN", escape(str(tls_res.get("issuer_cn", "N/A"))))
-            tls_table.add_row("Days Remaining", f"[bold #00ff66]{tls_res.get('days_remaining', 'N/A')} days[/bold #00ff66]")
+            tls_table.add_row(
+                "Days Remaining", f"[bold #00ff66]{tls_res.get('days_remaining', 'N/A')} days[/bold #00ff66]"
+            )
             tls_table.add_row("Key Type & Size", f"{tls_res.get('key_type', '')} {tls_res.get('key_size', '')} bits")
             c.print(tls_table)
 
@@ -726,7 +750,12 @@ class ReconWireApp:
             fuzz_table.add_column("CONTENT TYPE", width=20, style="#8b949e")
             for f in self.state.fuzz_results:
                 color = "green" if f.status_code == 200 else "yellow"
-                fuzz_table.add_row(f"[{color}]{f.status_code}[/{color}]", escape(f.path), f"{f.content_length} B", escape(f.content_type[:20]))
+                fuzz_table.add_row(
+                    f"[{color}]{f.status_code}[/{color}]",
+                    escape(f.path),
+                    f"{f.content_length} B",
+                    escape(f.content_type[:20]),
+                )
             c.print(fuzz_table)
 
         # ── 10. Cloud Buckets ──
@@ -738,7 +767,9 @@ class ReconWireApp:
             cloud_table.add_column("STATUS", width=14, justify="center")
             cloud_table.add_column("URL", ratio=2, style="#8b949e")
             for cb in self.state.cloud_results:
-                stat_badge = "[bold #ff4444]OPEN[/bold #ff4444]" if cb.status == "OPEN" else "[#8b949e]PROTECTED[/#8b949e]"
+                stat_badge = (
+                    "[bold #ff4444]OPEN[/bold #ff4444]" if cb.status == "OPEN" else "[#8b949e]PROTECTED[/#8b949e]"
+                )
                 cloud_table.add_row(cb.provider, escape(cb.bucket_name), stat_badge, escape(cb.url))
             c.print(cloud_table)
 
@@ -751,8 +782,17 @@ class ReconWireApp:
             waf_table.add_column("VECTOR", width=18, style="#58a6ff")
             waf_table.add_column("DETAILS / SIGNATURE", ratio=2, style="#8b949e")
             for w in self.state.waf_results:
-                conf_color = "bold #ff4444" if w.confidence == "DEFINITIVE" else ("#ffb703" if w.confidence == "HIGH" else "#00e5ff")
-                waf_table.add_row(f"{w.name} ({w.vendor})", f"[{conf_color}]{w.confidence}[/{conf_color}]", escape(w.matched_vector), escape(w.details[:75]))
+                conf_color = (
+                    "bold #ff4444"
+                    if w.confidence == "DEFINITIVE"
+                    else ("#ffb703" if w.confidence == "HIGH" else "#00e5ff")
+                )
+                waf_table.add_row(
+                    f"{w.name} ({w.vendor})",
+                    f"[{conf_color}]{w.confidence}[/{conf_color}]",
+                    escape(w.matched_vector),
+                    escape(w.details[:75]),
+                )
             c.print(waf_table)
 
         # ── 12. Autonomous System & BGP (ASN) ──
@@ -773,7 +813,7 @@ class ReconWireApp:
                     asn_val,
                     escape(net.get("asn_org", "—")[:40]),
                     escape(net.get("bgp_prefix", "—")),
-                    escape(net.get("country", "—"))
+                    escape(net.get("country", "—")),
                 )
             c.print(asn_table)
 
@@ -788,16 +828,25 @@ class ReconWireApp:
             tko_table.add_column("EVIDENCE", ratio=2, style="#8b949e")
             for t in self.state.takeover_results:
                 badge = "[bold red on #3a0000] VULNERABLE [/bold red on #3a0000]" if t.vulnerable else "[dim]SAFE[/dim]"
-                tko_table.add_row(badge, escape(t.subdomain), escape(t.provider), escape(t.cname), escape(t.verification_evidence[:60]))
+                tko_table.add_row(
+                    badge,
+                    escape(t.subdomain),
+                    escape(t.provider),
+                    escape(t.cname),
+                    escape(t.verification_evidence[:60]),
+                )
             c.print(tko_table)
 
         # ── 14. Harvested Secrets & Emails ──
         emails = self.state.harvest_results.get("emails", [])
         secrets = self.state.harvest_results.get("secrets", [])
         if emails or secrets:
-            c.print(f"\n[bold #ffb703]HARVESTED CREDENTIALS & EMAILS[/bold #ffb703]")
+            c.print("\n[bold #ffb703]HARVESTED CREDENTIALS & EMAILS[/bold #ffb703]")
             if emails:
-                c.print(f"  [bold #3fb950]Emails Found ({len(emails)}):[/bold #3fb950] " + ", ".join(f"[bold #e6edf3]{escape(e)}[/bold #e6edf3]" for e in emails[:15]))
+                c.print(
+                    f"  [bold #3fb950]Emails Found ({len(emails)}):[/bold #3fb950] "
+                    + ", ".join(f"[bold #e6edf3]{escape(e)}[/bold #e6edf3]" for e in emails[:15])
+                )
                 if len(emails) > 15:
                     c.print(f"  [dim]... and {len(emails) - 15} more emails[/dim]")
             if secrets:
@@ -807,27 +856,50 @@ class ReconWireApp:
                 sec_table.add_column("ENTROPY", width=10, justify="right", style="#3fb950")
                 sec_table.add_column("SOURCE LOCATION", ratio=2, style="#8b949e")
                 for s in secrets:
-                    sec_table.add_row(escape(s.get("type", "Secret")), escape(s.get("masked", "—")), f"{s.get('entropy', 0.0):.2f}", escape(s.get("url", "—")[:45]))
+                    sec_table.add_row(
+                        escape(s.get("type", "Secret")),
+                        escape(s.get("masked", "—")),
+                        f"{s.get('entropy', 0.0):.2f}",
+                        escape(s.get("url", "—")[:45]),
+                    )
                 c.print(sec_table)
 
         # ── 15. Content Security Policy (CSP) ──
         if self.state.csp_results:
-            c.print(f"\n[bold #00ff66]CONTENT SECURITY POLICY (CSP)[/bold #00ff66]")
+            c.print("\n[bold #00ff66]CONTENT SECURITY POLICY (CSP)[/bold #00ff66]")
             for csp_eval in self.state.csp_results:
-                grade_col = {"A": "green", "B": "green", "C": "yellow", "D": "red", "F": "bold red"}.get(csp_eval.grade, "white")
-                c.print(f"  Score: [{grade_col}]{csp_eval.score}/100 (Grade {csp_eval.grade})[/{grade_col}]  Report-Only: {'Yes' if csp_eval.report_only else 'No'}")
+                grade_col = {"A": "green", "B": "green", "C": "yellow", "D": "red", "F": "bold red"}.get(
+                    csp_eval.grade, "white"
+                )
+                c.print(
+                    f"  Score: [{grade_col}]{csp_eval.score}/100 (Grade {csp_eval.grade})[/{grade_col}]  Report-Only: {'Yes' if csp_eval.report_only else 'No'}"
+                )
                 if csp_eval.bypass_vectors:
-                    c.print(f"  [bold #ff4444]Potential Bypass Vectors:[/bold #ff4444] " + "; ".join(csp_eval.bypass_vectors[:3]))
+                    c.print(
+                        "  [bold #ff4444]Potential Bypass Vectors:[/bold #ff4444] "
+                        + "; ".join(csp_eval.bypass_vectors[:3])
+                    )
 
                 if csp_eval.flaws:
-                    csp_table = Table(show_header=True, header_style="bold #00ff66", border_style="#30363d", expand=True)
+                    csp_table = Table(
+                        show_header=True, header_style="bold #00ff66", border_style="#30363d", expand=True
+                    )
                     csp_table.add_column("SEV", width=10)
                     csp_table.add_column("DIRECTIVE", width=20, style="bold #e6edf3")
                     csp_table.add_column("ISSUE", ratio=2, style="#ffb703")
                     csp_table.add_column("IMPACT / REMEDIATION", ratio=3, style="#8b949e")
                     for fl in csp_eval.flaws:
-                        fl_col = "bold #ff4444" if fl.severity in ("CRITICAL", "HIGH") else ("#ffb703" if fl.severity == "MEDIUM" else "#00e5ff")
-                        csp_table.add_row(f"[{fl_col}]{fl.severity}[/{fl_col}]", escape(fl.directive), escape(fl.issue), escape(f"{fl.impact} — {fl.recommendation}"[:100]))
+                        fl_col = (
+                            "bold #ff4444"
+                            if fl.severity in ("CRITICAL", "HIGH")
+                            else ("#ffb703" if fl.severity == "MEDIUM" else "#00e5ff")
+                        )
+                        csp_table.add_row(
+                            f"[{fl_col}]{fl.severity}[/{fl_col}]",
+                            escape(fl.directive),
+                            escape(fl.issue),
+                            escape(f"{fl.impact} — {fl.recommendation}"[:100]),
+                        )
                     c.print(csp_table)
 
         # ── 16. Discovered Parameters (PD-1) ──
@@ -840,7 +912,12 @@ class ReconWireApp:
             p_table.add_column("EVIDENCE", ratio=2, style="#8b949e")
             for pr in self.state.param_results:
                 b_color = "bold #ff4444" if pr.anomaly_type == "REFLECTION" else "#ffb703"
-                p_table.add_row(escape(pr.param), f"[{b_color}]{pr.anomaly_type}[/{b_color}]", escape(pr.endpoint[:45]), escape(pr.evidence[:70]))
+                p_table.add_row(
+                    escape(pr.param),
+                    f"[{b_color}]{pr.anomaly_type}[/{b_color}]",
+                    escape(pr.endpoint[:45]),
+                    escape(pr.evidence[:70]),
+                )
             c.print(p_table)
 
         # ── 17. Virtual Hosts (PC-2) ──
@@ -854,7 +931,13 @@ class ReconWireApp:
             vh_table.add_column("DIFFERENCE", width=16, style="#ffb703")
             for vh in self.state.vhost_results:
                 sc_col = "bold #00ff66" if vh.status_code == 200 else "#ffb703"
-                vh_table.add_row(escape(vh.host), escape(vh.ip), f"[{sc_col}]{vh.status_code}[/{sc_col}]", escape(vh.title[:35]), vh.diff_type)
+                vh_table.add_row(
+                    escape(vh.host),
+                    escape(vh.ip),
+                    f"[{sc_col}]{vh.status_code}[/{sc_col}]",
+                    escape(vh.title[:35]),
+                    vh.diff_type,
+                )
             c.print(vh_table)
 
         # ── 18. Security Findings ──
@@ -868,7 +951,13 @@ class ReconWireApp:
             find_table.add_column("TITLE", ratio=2, style="bold #e6edf3")
             find_table.add_column("DETAIL", ratio=3, style="#8b949e")
 
-            sev_colors = {"CRITICAL": "bold #ff4444", "HIGH": "#ff4444", "MEDIUM": "#ffb703", "LOW": "#00e5ff", "INFO": "#8b949e"}
+            sev_colors = {
+                "CRITICAL": "bold #ff4444",
+                "HIGH": "#ff4444",
+                "MEDIUM": "#ffb703",
+                "LOW": "#00e5ff",
+                "INFO": "#8b949e",
+            }
             for i, f in enumerate(findings, 1):
                 sev = getattr(f, "severity", "INFO")
                 color = sev_colors.get(sev, "white")
@@ -903,13 +992,12 @@ class ReconWireApp:
                 saved_files.append(("SARIF v2.1.0", p))
 
             if saved_files:
-                self.console.print(f"\n[bold #00ff66]SESSION EXPORT SAVED[/bold #00ff66]")
+                self.console.print("\n[bold #00ff66]SESSION EXPORT SAVED[/bold #00ff66]")
                 for label, p in saved_files:
                     self.console.print(f"  [#8b949e]{label:<16}:[/#8b949e] [bold #00e5ff]{p}[/bold #00e5ff]")
                 self.console.print("")
         except Exception as exc:
             self.console.print(f"[bold #ff4444]Export notice: {exc}[/bold #ff4444]")
-
 
     def run(self) -> None:
         """Entry point called by main.py."""
@@ -919,7 +1007,6 @@ class ReconWireApp:
         # 1. Print the purple-blue gradient ASCII art banner centered in terminal
         self.console.print(get_banner_renderable())
         self.console.print("")
-
 
         # 2. Run the main reconnaissance scan and live TUI
         try:

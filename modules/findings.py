@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING
 
@@ -29,7 +29,8 @@ SEVERITY_ORDER: dict[str, int] = {
 @dataclass
 class Finding:
     """A single security finding produced by any module."""
-    severity: str        # CRITICAL | HIGH | MEDIUM | LOW | INFO
+
+    severity: str  # CRITICAL | HIGH | MEDIUM | LOW | INFO
     module: str
     title: str
     detail: str
@@ -68,16 +69,16 @@ class FindingsAggregator:
         logger.info("FindingsAggregator started — waiting for findings")
         while True:
             try:
-                finding: Finding = await asyncio.wait_for(
-                    self.state.findings_queue.get(), timeout=1.0
-                )
+                finding: Finding = await asyncio.wait_for(self.state.findings_queue.get(), timeout=1.0)
                 self.state.findings.append(finding)
                 # Re-sort by severity (stable sort preserves order within rank)
                 self.state.findings.sort(key=lambda f: f.severity_rank)
                 self.state.findings_queue.task_done()
                 logger.debug(
                     "Findings total: %d  (latest: %s/%s)",
-                    len(self.state.findings), finding.severity, finding.title,
+                    len(self.state.findings),
+                    finding.severity,
+                    finding.title,
                 )
             except asyncio.TimeoutError:
                 if self.state.scan_complete:

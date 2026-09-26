@@ -12,12 +12,12 @@ import logging
 import socket
 import ssl
 from datetime import datetime
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from cryptography import x509
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import rsa, ec, dsa
-from cryptography.x509.oid import NameOID, ExtensionOID
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import dsa, ec, rsa
+from cryptography.x509.oid import ExtensionOID, NameOID
 
 from modules.findings import push_finding
 
@@ -28,16 +28,48 @@ logger = logging.getLogger("recon_wire.tls")
 
 # ── TLS versions to probe (label → ssl constant) ──
 TLS_VERSIONS: list[dict[str, Any]] = [
-    {"name": "TLS 1.3", "protocol": ssl.PROTOCOL_TLS_CLIENT, "min": getattr(ssl.TLSVersion, "TLSv1_3", None), "max": getattr(ssl.TLSVersion, "TLSv1_3", None), "secure": True},
-    {"name": "TLS 1.2", "protocol": ssl.PROTOCOL_TLS_CLIENT, "min": ssl.TLSVersion.TLSv1_2, "max": ssl.TLSVersion.TLSv1_2, "secure": True},
-    {"name": "TLS 1.1", "protocol": ssl.PROTOCOL_TLS_CLIENT, "min": getattr(ssl.TLSVersion, "TLSv1_1", None), "max": getattr(ssl.TLSVersion, "TLSv1_1", None), "secure": False},
-    {"name": "TLS 1.0", "protocol": ssl.PROTOCOL_TLS_CLIENT, "min": getattr(ssl.TLSVersion, "TLSv1", None), "max": getattr(ssl.TLSVersion, "TLSv1", None), "secure": False},
+    {
+        "name": "TLS 1.3",
+        "protocol": ssl.PROTOCOL_TLS_CLIENT,
+        "min": getattr(ssl.TLSVersion, "TLSv1_3", None),
+        "max": getattr(ssl.TLSVersion, "TLSv1_3", None),
+        "secure": True,
+    },
+    {
+        "name": "TLS 1.2",
+        "protocol": ssl.PROTOCOL_TLS_CLIENT,
+        "min": ssl.TLSVersion.TLSv1_2,
+        "max": ssl.TLSVersion.TLSv1_2,
+        "secure": True,
+    },
+    {
+        "name": "TLS 1.1",
+        "protocol": ssl.PROTOCOL_TLS_CLIENT,
+        "min": getattr(ssl.TLSVersion, "TLSv1_1", None),
+        "max": getattr(ssl.TLSVersion, "TLSv1_1", None),
+        "secure": False,
+    },
+    {
+        "name": "TLS 1.0",
+        "protocol": ssl.PROTOCOL_TLS_CLIENT,
+        "min": getattr(ssl.TLSVersion, "TLSv1", None),
+        "max": getattr(ssl.TLSVersion, "TLSv1", None),
+        "secure": False,
+    },
 ]
 
 # ── Weak cipher substrings ──
 WEAK_CIPHERS = [
-    "RC4", "DES", "MD5", "NULL", "EXPORT", "anon", "RC2",
-    "SEED", "IDEA", "CAMELLIA",
+    "RC4",
+    "DES",
+    "MD5",
+    "NULL",
+    "EXPORT",
+    "anon",
+    "RC2",
+    "SEED",
+    "IDEA",
+    "CAMELLIA",
 ]
 
 
@@ -63,7 +95,8 @@ class TLSModule:
             if self.state.config.scheme != "https":
                 await push_finding(
                     self.state.findings_queue,
-                    severity="HIGH", module="TLS",
+                    severity="HIGH",
+                    module="TLS",
                     title="No TLS — Plain HTTP",
                     detail="Target uses plain HTTP without encryption",
                     evidence=f"Scheme: {self.state.config.scheme}",
@@ -86,9 +119,7 @@ class TLSModule:
             # ── TLS version probing ──
             tls_versions: dict[str, bool] = {}
             for ver_spec in TLS_VERSIONS:
-                supported = await loop.run_in_executor(
-                    None, self._probe_tls_version, ver_spec
-                )
+                supported = await loop.run_in_executor(None, self._probe_tls_version, ver_spec)
                 tls_versions[ver_spec["name"]] = supported
                 if supported and not ver_spec["secure"]:
                     await push_finding(
@@ -116,7 +147,8 @@ class TLSModule:
                     if weak.lower() in negotiated_cipher.lower():
                         await push_finding(
                             self.state.findings_queue,
-                            severity="HIGH", module="TLS",
+                            severity="HIGH",
+                            module="TLS",
                             title=f"Weak Cipher: {negotiated_cipher}",
                             detail=f"Negotiated cipher contains weak algorithm: {weak}",
                             evidence=f"Cipher: {negotiated_cipher}",
@@ -156,7 +188,8 @@ class TLSModule:
             logger.error("TLS module failed: %s", exc, exc_info=True)
             await push_finding(
                 self.state.findings_queue,
-                severity="MEDIUM", module="TLS",
+                severity="MEDIUM",
+                module="TLS",
                 title="TLS Module Error",
                 detail=str(exc),
                 evidence=f"{self.hostname}:{self.port}",
@@ -174,11 +207,13 @@ class TLSModule:
             if ver_spec.get("max") is not None:
                 ctx.maximum_version = ver_spec["max"]
 
-            with socket.create_connection((self.hostname, self.port), timeout=self.timeout) as sock:
-                with ctx.wrap_socket(sock, server_hostname=self.hostname) as ssock:
-                    ssock.do_handshake()
-                    return True
-        except (ssl.SSLError, OSError, ConnectionError, socket.timeout):
+            with (
+                socket.create_connection((self.hostname, self.port), timeout=self.timeout) as sock,
+                ctx.wrap_socket(sock, server_hostname=self.hostname) as ssock,
+            ):
+                ssock.do_handshake()
+                return True
+        except (TimeoutError, ssl.SSLError, OSError, ConnectionError):
             return False
         except Exception as exc:
             logger.debug("TLS probe error for %s: %s", ver_spec["name"], exc)
@@ -196,28 +231,30 @@ class TLSModule:
             ctx.check_hostname = False
             ctx.verify_mode = ssl.CERT_NONE
 
-            with socket.create_connection((self.hostname, self.port), timeout=self.timeout) as sock:
-                with ctx.wrap_socket(sock, server_hostname=self.hostname) as ssock:
-                    ssock.do_handshake()
+            with (
+                socket.create_connection((self.hostname, self.port), timeout=self.timeout) as sock,
+                ctx.wrap_socket(sock, server_hostname=self.hostname) as ssock,
+            ):
+                ssock.do_handshake()
 
-                    # Negotiated cipher
-                    cipher_info = ssock.cipher()
-                    if cipher_info:
-                        result["cipher"] = f"{cipher_info[0]} ({cipher_info[1]}, {cipher_info[2]}-bit)"
+                # Negotiated cipher
+                cipher_info = ssock.cipher()
+                if cipher_info:
+                    result["cipher"] = f"{cipher_info[0]} ({cipher_info[1]}, {cipher_info[2]}-bit)"
 
-                    # Get binary cert chain
-                    der_certs = ssock.getpeercert(binary_form=True)
-                    peer_cert = ssock.getpeercert()
+                # Get binary cert chain
+                der_certs = ssock.getpeercert(binary_form=True)
+                peer_cert = ssock.getpeercert()
 
-                    # Parse binary certs
-                    if der_certs:
-                        chain_parsed = self._parse_cert(der_certs, is_leaf=True)
-                        result["chain"].append(chain_parsed)
-                        result["leaf"] = chain_parsed
+                # Parse binary certs
+                if der_certs:
+                    chain_parsed = self._parse_cert(der_certs, is_leaf=True)
+                    result["chain"].append(chain_parsed)
+                    result["leaf"] = chain_parsed
 
-                    # Parse peer cert dict for additional info
-                    if peer_cert:
-                        result["leaf"].update(self._parse_peer_cert(peer_cert))
+                # Parse peer cert dict for additional info
+                if peer_cert:
+                    result["leaf"].update(self._parse_peer_cert(peer_cert))
 
         except Exception as exc:
             logger.warning("Cert chain extraction failed: %s", exc)
@@ -228,17 +265,19 @@ class TLSModule:
             ctx2 = ssl.create_default_context()
             ctx2.check_hostname = False
             ctx2.verify_mode = ssl.CERT_NONE
-            with socket.create_connection((self.hostname, self.port), timeout=self.timeout) as sock:
-                with ctx2.wrap_socket(sock, server_hostname=self.hostname) as ssock:
-                    # Some Python versions support get_unverified_chain
-                    if hasattr(ssock, "get_unverified_chain"):
-                        chain_certs = ssock.get_unverified_chain()
-                        result["chain"] = []
-                        for i, cert_bytes in enumerate(chain_certs):
-                            parsed = self._parse_x509_cert(cert_bytes, is_leaf=(i == 0))
-                            result["chain"].append(parsed)
-                            if i == 0:
-                                result["leaf"].update(parsed)
+            with (
+                socket.create_connection((self.hostname, self.port), timeout=self.timeout) as sock,
+                ctx2.wrap_socket(sock, server_hostname=self.hostname) as ssock,
+            ):
+                # Some Python versions support get_unverified_chain
+                if hasattr(ssock, "get_unverified_chain"):
+                    chain_certs = ssock.get_unverified_chain()
+                    result["chain"] = []
+                    for i, cert_bytes in enumerate(chain_certs):
+                        parsed = self._parse_x509_cert(cert_bytes, is_leaf=(i == 0))
+                        result["chain"].append(parsed)
+                        if i == 0:
+                            result["leaf"].update(parsed)
         except Exception:
             pass
 
@@ -285,10 +324,18 @@ class TLSModule:
 
         # Dates
         try:
-            info["not_before"] = cert.not_valid_before_utc.isoformat() if hasattr(cert, 'not_valid_before_utc') else cert.not_valid_before.isoformat()
-            info["not_after"] = cert.not_valid_after_utc.isoformat() if hasattr(cert, 'not_valid_after_utc') else cert.not_valid_after.isoformat()
-            not_after = cert.not_valid_after_utc if hasattr(cert, 'not_valid_after_utc') else cert.not_valid_after
-            not_before = cert.not_valid_before_utc if hasattr(cert, 'not_valid_before_utc') else cert.not_valid_before
+            info["not_before"] = (
+                cert.not_valid_before_utc.isoformat()
+                if hasattr(cert, "not_valid_before_utc")
+                else cert.not_valid_before.isoformat()
+            )
+            info["not_after"] = (
+                cert.not_valid_after_utc.isoformat()
+                if hasattr(cert, "not_valid_after_utc")
+                else cert.not_valid_after.isoformat()
+            )
+            not_after = cert.not_valid_after_utc if hasattr(cert, "not_valid_after_utc") else cert.not_valid_after
+            not_before = cert.not_valid_before_utc if hasattr(cert, "not_valid_before_utc") else cert.not_valid_before
             info["days_remaining"] = (not_after - datetime.utcnow()).days
             info["validity_days"] = (not_after - not_before).days
         except Exception:
@@ -380,7 +427,7 @@ class TLSModule:
                     x509.oid.ExtensionOID.PRECERT_SIGNED_CERTIFICATE_TIMESTAMPS
                 )
                 info["ct_present"] = True
-                info["sct_count"] = len(sct_ext.value) if hasattr(sct_ext.value, '__len__') else 1
+                info["sct_count"] = len(sct_ext.value) if hasattr(sct_ext.value, "__len__") else 1
             except Exception:
                 info["ct_present"] = False
                 info["sct_count"] = 0
@@ -416,18 +463,23 @@ class TLSModule:
             result[label] = attr.value
         return result
 
-    async def _check_vulnerabilities(
-        self, leaf: dict[str, Any], chain: list[dict[str, Any]]
-    ) -> list[dict[str, str]]:
+    async def _check_vulnerabilities(self, leaf: dict[str, Any], chain: list[dict[str, Any]]) -> list[dict[str, str]]:
         """Run vulnerability checks on cert data."""
         vulns: list[dict[str, str]] = []
         q = self.state.findings_queue
 
         # Self-signed cert
         if leaf.get("is_self_signed"):
-            vulns.append({"name": "Self-Signed Certificate", "detail": "Certificate is self-signed — browsers will show warnings"})
+            vulns.append(
+                {
+                    "name": "Self-Signed Certificate",
+                    "detail": "Certificate is self-signed — browsers will show warnings",
+                }
+            )
             await push_finding(
-                q, severity="HIGH", module="TLS",
+                q,
+                severity="HIGH",
+                module="TLS",
                 title="Self-Signed Certificate",
                 detail="Leaf certificate is self-signed — not trusted by browsers",
                 evidence=f"Subject: {leaf.get('subject_cn', 'N/A')}, Issuer: {leaf.get('issuer_cn', 'N/A')}",
@@ -437,17 +489,25 @@ class TLSModule:
         days_remaining = leaf.get("days_remaining")
         if days_remaining is not None:
             if days_remaining < 0:
-                vulns.append({"name": "Expired Certificate", "detail": f"Certificate expired {abs(days_remaining)} days ago"})
+                vulns.append(
+                    {"name": "Expired Certificate", "detail": f"Certificate expired {abs(days_remaining)} days ago"}
+                )
                 await push_finding(
-                    q, severity="CRITICAL", module="TLS",
+                    q,
+                    severity="CRITICAL",
+                    module="TLS",
                     title="Certificate Expired",
                     detail=f"Certificate expired {abs(days_remaining)} days ago",
                     evidence=f"Not After: {leaf.get('not_after', 'N/A')}",
                 )
             elif days_remaining < 30:
-                vulns.append({"name": "Certificate Expiring Soon", "detail": f"Certificate expires in {days_remaining} days"})
+                vulns.append(
+                    {"name": "Certificate Expiring Soon", "detail": f"Certificate expires in {days_remaining} days"}
+                )
                 await push_finding(
-                    q, severity="HIGH", module="TLS",
+                    q,
+                    severity="HIGH",
+                    module="TLS",
                     title="Certificate Expiring Soon",
                     detail=f"Certificate expires in {days_remaining} days — renew immediately",
                     evidence=f"Not After: {leaf.get('not_after', 'N/A')}",
@@ -459,7 +519,9 @@ class TLSModule:
         if key_type == "RSA" and key_size and key_size < 2048:
             vulns.append({"name": "Weak RSA Key", "detail": f"RSA key size {key_size} bits — minimum 2048 recommended"})
             await push_finding(
-                q, severity="HIGH", module="TLS",
+                q,
+                severity="HIGH",
+                module="TLS",
                 title=f"Weak RSA Key ({key_size}-bit)",
                 detail=f"RSA key size {key_size} is below the 2048-bit minimum recommendation",
                 evidence=f"Key: RSA-{key_size}",
@@ -467,7 +529,9 @@ class TLSModule:
         elif key_type == "ECDSA" and key_size and key_size < 256:
             vulns.append({"name": "Weak EC Key", "detail": f"EC key size {key_size} bits"})
             await push_finding(
-                q, severity="MEDIUM", module="TLS",
+                q,
+                severity="MEDIUM",
+                module="TLS",
                 title=f"Weak EC Key ({key_size}-bit)",
                 detail=f"ECDSA key size {key_size} is below the 256-bit recommendation",
                 evidence=f"Key: ECDSA-{key_size}",
@@ -476,9 +540,13 @@ class TLSModule:
         # SHA-1 signature
         sig_algo = leaf.get("signature_algorithm", "").lower()
         if "sha1" in sig_algo or "sha-1" in sig_algo:
-            vulns.append({"name": "SHA-1 Signature", "detail": "Certificate uses SHA-1 signature — deprecated and insecure"})
+            vulns.append(
+                {"name": "SHA-1 Signature", "detail": "Certificate uses SHA-1 signature — deprecated and insecure"}
+            )
             await push_finding(
-                q, severity="HIGH", module="TLS",
+                q,
+                severity="HIGH",
+                module="TLS",
                 title="SHA-1 Certificate Signature",
                 detail="Certificate signed with SHA-1 — deprecated and vulnerable to collision attacks",
                 evidence=f"Signature Algorithm: {sig_algo}",
@@ -503,7 +571,9 @@ class TLSModule:
         if all_names and not name_matches:
             vulns.append({"name": "Hostname Mismatch", "detail": f"Certificate does not match hostname {hostname}"})
             await push_finding(
-                q, severity="HIGH", module="TLS",
+                q,
+                severity="HIGH",
+                module="TLS",
                 title="Certificate Hostname Mismatch",
                 detail=f"Certificate CN/SANs do not include {hostname}",
                 evidence=f"SANs: {', '.join(list(all_names)[:5])}, Hostname: {hostname}",
@@ -511,20 +581,34 @@ class TLSModule:
 
         # Missing CT
         if not leaf.get("ct_present"):
-            vulns.append({"name": "No Certificate Transparency", "detail": "No SCT extensions found — certificate may not be logged"})
+            vulns.append(
+                {
+                    "name": "No Certificate Transparency",
+                    "detail": "No SCT extensions found — certificate may not be logged",
+                }
+            )
             await push_finding(
-                q, severity="LOW", module="TLS",
+                q,
+                severity="LOW",
+                module="TLS",
                 title="No Certificate Transparency",
                 detail="Certificate lacks SCT extensions — not logged to CT logs",
-                evidence=f"SCT count: 0",
+                evidence="SCT count: 0",
             )
 
         # Long validity (>398 days is non-compliant per CA/B Forum)
         validity_days = leaf.get("validity_days")
         if validity_days and validity_days > 398:
-            vulns.append({"name": "Excessive Validity Period", "detail": f"Certificate valid for {validity_days} days — exceeds 398-day CA/B Forum limit"})
+            vulns.append(
+                {
+                    "name": "Excessive Validity Period",
+                    "detail": f"Certificate valid for {validity_days} days — exceeds 398-day CA/B Forum limit",
+                }
+            )
             await push_finding(
-                q, severity="INFO", module="TLS",
+                q,
+                severity="INFO",
+                module="TLS",
                 title="Excessive Certificate Validity",
                 detail=f"Certificate validity period ({validity_days} days) exceeds the 398-day CA/B Forum maximum",
                 evidence=f"Valid: {leaf.get('not_before', 'N/A')} to {leaf.get('not_after', 'N/A')}",

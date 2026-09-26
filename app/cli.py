@@ -22,22 +22,57 @@ def _extract_apex_domain(hostname: str) -> str:
     Falls back to last two labels for standard TLDs.
     """
     COMPOUND_TLDS = {
-        "co.uk", "org.uk", "ac.uk", "gov.uk", "net.uk",
-        "com.au", "net.au", "org.au", "edu.au",
-        "co.nz", "net.nz", "org.nz",
-        "co.za", "org.za", "web.za",
-        "co.in", "net.in", "org.in",
-        "co.jp", "or.jp", "ne.jp",
-        "com.br", "net.br", "org.br",
-        "com.mx", "org.mx", "net.mx",
-        "com.cn", "net.cn", "org.cn",
-        "co.kr", "or.kr", "ne.kr",
-        "com.sg", "org.sg", "net.sg",
-        "com.hk", "org.hk", "net.hk",
-        "co.il", "org.il", "net.il",
-        "com.tw", "org.tw", "net.tw",
-        "co.th", "or.th", "in.th",
-        "com.tr", "org.tr", "net.tr",
+        "co.uk",
+        "org.uk",
+        "ac.uk",
+        "gov.uk",
+        "net.uk",
+        "com.au",
+        "net.au",
+        "org.au",
+        "edu.au",
+        "co.nz",
+        "net.nz",
+        "org.nz",
+        "co.za",
+        "org.za",
+        "web.za",
+        "co.in",
+        "net.in",
+        "org.in",
+        "co.jp",
+        "or.jp",
+        "ne.jp",
+        "com.br",
+        "net.br",
+        "org.br",
+        "com.mx",
+        "org.mx",
+        "net.mx",
+        "com.cn",
+        "net.cn",
+        "org.cn",
+        "co.kr",
+        "or.kr",
+        "ne.kr",
+        "com.sg",
+        "org.sg",
+        "net.sg",
+        "com.hk",
+        "org.hk",
+        "net.hk",
+        "co.il",
+        "org.il",
+        "net.il",
+        "com.tw",
+        "org.tw",
+        "net.tw",
+        "co.th",
+        "or.th",
+        "in.th",
+        "com.tr",
+        "org.tr",
+        "net.tr",
     }
     parts = hostname.rstrip(".").split(".")
     if len(parts) <= 2:
@@ -83,40 +118,108 @@ def parse_and_validate() -> ScanConfig:
     parser.add_argument("--timeout", type=int, default=10, help="Request timeout in seconds (default: 10)")
     parser.add_argument("--subdomains", type=int, default=200, help="Max subdomains to brute-force (default: 200)")
     parser.add_argument("--no-geoip", dest="geoip_enabled", action="store_false", help="Disable GeoIP lookups")
-    parser.add_argument("--no-axfr", dest="axfr_enabled", action="store_false", help="Disable AXFR zone transfer attempts")
-    parser.add_argument("--output-dir", type=Path, default=Path("."), help="Base export output directory (default: cwd)")
-    parser.add_argument("--rate", type=int, default=50, dest="max_concurrent", help="Max concurrent requests (default: 50)")
+    parser.add_argument(
+        "--no-axfr", dest="axfr_enabled", action="store_false", help="Disable AXFR zone transfer attempts"
+    )
+    parser.add_argument(
+        "--output-dir", type=Path, default=Path("."), help="Base export output directory (default: cwd)"
+    )
+    parser.add_argument(
+        "--rate", type=int, default=50, dest="max_concurrent", help="Max concurrent requests (default: 50)"
+    )
 
     # Output options — default is terminal text output only (no file saved)
-    parser.add_argument("--json", "-oJ", nargs="?", const="", default=None, metavar="FILE", help="Save scan results to JSON file (optional filepath)")
-    parser.add_argument("--markdown", "--md", "-oM", nargs="?", const="", default=None, metavar="FILE", help="Save scan results to Markdown report (optional filepath)")
-    parser.add_argument("--text", "--txt", "-oT", nargs="?", const="", default=None, metavar="FILE", help="Save scan results to plain text file (optional filepath)")
-    parser.add_argument("--sarif", "-oS", nargs="?", const="", default=None, metavar="FILE", help="Save scan results in SARIF format for CI/CD / GitHub Security (optional filepath)")
+    parser.add_argument(
+        "--json",
+        "-oJ",
+        nargs="?",
+        const="",
+        default=None,
+        metavar="FILE",
+        help="Save scan results to JSON file (optional filepath)",
+    )
+    parser.add_argument(
+        "--markdown",
+        "--md",
+        "-oM",
+        nargs="?",
+        const="",
+        default=None,
+        metavar="FILE",
+        help="Save scan results to Markdown report (optional filepath)",
+    )
+    parser.add_argument(
+        "--text",
+        "--txt",
+        "-oT",
+        nargs="?",
+        const="",
+        default=None,
+        metavar="FILE",
+        help="Save scan results to plain text file (optional filepath)",
+    )
+    parser.add_argument(
+        "--sarif",
+        "-oS",
+        nargs="?",
+        const="",
+        default=None,
+        metavar="FILE",
+        help="Save scan results in SARIF format for CI/CD / GitHub Security (optional filepath)",
+    )
 
     # P2-2: Adaptive rate limiting & stealth options
-    parser.add_argument("--delay", type=float, default=0.0, help="Delay in seconds between requests for stealth (default: 0.0)")
+    parser.add_argument(
+        "--delay", type=float, default=0.0, help="Delay in seconds between requests for stealth (default: 0.0)"
+    )
     parser.add_argument("--jitter", type=float, default=0.0, help="Max random jitter added to delay (default: 0.0)")
-    parser.add_argument("--user-agent", "-ua", type=str, default=None, help="Custom User-Agent header (or 'random' for pool rotation)")
+    parser.add_argument(
+        "--user-agent", "-ua", type=str, default=None, help="Custom User-Agent header (or 'random' for pool rotation)"
+    )
 
     # Vector modules toggles
     parser.add_argument("--no-ports", dest="scan_ports", action="store_false", help="Disable port scanner module")
-    parser.add_argument("--no-endpoints", dest="scan_endpoints", action="store_false", help="Disable web crawl and endpoint discovery")
-    parser.add_argument("--no-fuzz", dest="scan_fuzz", action="store_false", help="Disable sensitive file and directory fuzzing")
-    parser.add_argument("--no-cloud", dest="scan_cloud", action="store_false", help="Disable public cloud bucket hunting")
-    parser.add_argument("--no-takeover", dest="scan_takeover", action="store_false", help="Disable subdomain takeover detection")
-    parser.add_argument("--no-harvest", dest="scan_harvest", action="store_false", help="Disable email and secret harvesting")
+    parser.add_argument(
+        "--no-endpoints", dest="scan_endpoints", action="store_false", help="Disable web crawl and endpoint discovery"
+    )
+    parser.add_argument(
+        "--no-fuzz", dest="scan_fuzz", action="store_false", help="Disable sensitive file and directory fuzzing"
+    )
+    parser.add_argument(
+        "--no-cloud", dest="scan_cloud", action="store_false", help="Disable public cloud bucket hunting"
+    )
+    parser.add_argument(
+        "--no-takeover", dest="scan_takeover", action="store_false", help="Disable subdomain takeover detection"
+    )
+    parser.add_argument(
+        "--no-harvest", dest="scan_harvest", action="store_false", help="Disable email and secret harvesting"
+    )
     parser.add_argument("--no-waf", dest="scan_waf", action="store_false", help="Disable WAF fingerprinting")
     parser.add_argument("--no-asn", dest="scan_asn", action="store_false", help="Disable IP range and ASN lookup")
-    parser.add_argument("--no-params", dest="scan_params", action="store_false", help="Disable hidden parameter discovery")
-    parser.add_argument("--no-csp", dest="scan_csp", action="store_false", help="Disable Content Security Policy evaluation")
-    parser.add_argument("--no-vhost", dest="scan_vhost", action="store_false", help="Disable virtual host brute forcing")
-    parser.set_defaults(
-        geoip_enabled=True, axfr_enabled=True, scan_ports=True, scan_endpoints=True,
-        scan_fuzz=True, scan_cloud=True, scan_takeover=True, scan_harvest=True,
-        scan_waf=True, scan_asn=True, scan_params=True, scan_csp=True, scan_vhost=True
+    parser.add_argument(
+        "--no-params", dest="scan_params", action="store_false", help="Disable hidden parameter discovery"
     )
-
-
+    parser.add_argument(
+        "--no-csp", dest="scan_csp", action="store_false", help="Disable Content Security Policy evaluation"
+    )
+    parser.add_argument(
+        "--no-vhost", dest="scan_vhost", action="store_false", help="Disable virtual host brute forcing"
+    )
+    parser.set_defaults(
+        geoip_enabled=True,
+        axfr_enabled=True,
+        scan_ports=True,
+        scan_endpoints=True,
+        scan_fuzz=True,
+        scan_cloud=True,
+        scan_takeover=True,
+        scan_harvest=True,
+        scan_waf=True,
+        scan_asn=True,
+        scan_params=True,
+        scan_csp=True,
+        scan_vhost=True,
+    )
 
     args = parser.parse_args()
 
@@ -135,10 +238,7 @@ def parse_and_validate() -> ScanConfig:
         sys.exit(1)
 
     # ── Determine port ──
-    if parsed.port:
-        port = parsed.port
-    else:
-        port = 443 if parsed.scheme == "https" else 80
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
 
     # ── Pre-flight DNS ──
     if not _preflight_dns(hostname):
@@ -159,31 +259,19 @@ def parse_and_validate() -> ScanConfig:
     clean_domain = domain.replace(".", "_")
     output_json_path: Path | None = None
     if args.json is not None:
-        if args.json == "":
-            output_json_path = output_dir / f"recon_wire_{clean_domain}.json"
-        else:
-            output_json_path = Path(args.json)
+        output_json_path = output_dir / f"recon_wire_{clean_domain}.json" if args.json == "" else Path(args.json)
 
     output_md_path: Path | None = None
     if args.markdown is not None:
-        if args.markdown == "":
-            output_md_path = output_dir / f"recon_wire_{clean_domain}.md"
-        else:
-            output_md_path = Path(args.markdown)
+        output_md_path = output_dir / f"recon_wire_{clean_domain}.md" if args.markdown == "" else Path(args.markdown)
 
     output_txt_path: Path | None = None
     if args.text is not None:
-        if args.text == "":
-            output_txt_path = output_dir / f"recon_wire_{clean_domain}.txt"
-        else:
-            output_txt_path = Path(args.text)
+        output_txt_path = output_dir / f"recon_wire_{clean_domain}.txt" if args.text == "" else Path(args.text)
 
     output_sarif_path: Path | None = None
     if args.sarif is not None:
-        if args.sarif == "":
-            output_sarif_path = output_dir / f"recon_wire_{clean_domain}.sarif"
-        else:
-            output_sarif_path = Path(args.sarif)
+        output_sarif_path = output_dir / f"recon_wire_{clean_domain}.sarif" if args.sarif == "" else Path(args.sarif)
 
     return ScanConfig(
         url=url,
@@ -216,5 +304,3 @@ def parse_and_validate() -> ScanConfig:
         scan_csp=args.scan_csp,
         scan_vhost=args.scan_vhost,
     )
-
-

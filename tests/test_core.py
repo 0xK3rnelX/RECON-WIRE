@@ -1,17 +1,17 @@
 """Automated unit and integration test suite for RECON-WIRE."""
 
-import pytest
 from pathlib import Path
+
+from app.cli import _extract_apex_domain, _normalize_url
 from app.state import AppState, ScanConfig
-from app.cli import _normalize_url, _extract_apex_domain
-from modules.vhost import VHOST_PREFIXES
-from modules.params import PARAM_WORDLIST
 from modules.csp import GADGET_CDNS
 from modules.fuzz import FUZZ_TARGETS
 from modules.harvest import SECRET_PATTERNS
+from modules.params import PARAM_WORDLIST
 from modules.ports import COMMON_PORTS
 from modules.subdomain import SUBDOMAIN_WORDLIST
 from modules.takeover import TAKEOVER_SIGNATURES
+from modules.vhost import VHOST_PREFIXES
 
 
 def test_url_normalization():
@@ -55,9 +55,23 @@ def test_app_state_initialization(tmp_path: Path):
 
     # Verify all module statuses are initialized
     required_modules = [
-        "DNS", "SUBDOMAINS", "HEADERS", "TECH", "WHOIS", "TLS",
-        "PORTS", "ENDPOINTS", "FUZZ", "CLOUD", "TAKEOVER",
-        "HARVEST", "WAF", "ASN", "PARAMS", "CSP", "VHOST"
+        "DNS",
+        "SUBDOMAINS",
+        "HEADERS",
+        "TECH",
+        "WHOIS",
+        "TLS",
+        "PORTS",
+        "ENDPOINTS",
+        "FUZZ",
+        "CLOUD",
+        "TAKEOVER",
+        "HARVEST",
+        "WAF",
+        "ASN",
+        "PARAMS",
+        "CSP",
+        "VHOST",
     ]
     for mod in required_modules:
         assert mod in state.module_statuses

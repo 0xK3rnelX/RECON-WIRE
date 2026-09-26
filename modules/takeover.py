@@ -8,14 +8,14 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING
 
 import dns.asyncresolver
 import dns.resolver
 
 from modules.findings import push_finding
-from modules.stealth import build_client, apply_stealth_delay
+from modules.stealth import apply_stealth_delay, build_client
 
 if TYPE_CHECKING:
     from app.state import AppState
@@ -75,7 +75,6 @@ TAKEOVER_SIGNATURES: list[dict[str, str]] = [
         "cname": "fly.dev",
         "fingerprint": "404 Not Found",
     },
-
     # Cloud Infrastructure & Storage
     {
         "service": "AWS S3 Bucket",
@@ -127,7 +126,6 @@ TAKEOVER_SIGNATURES: list[dict[str, str]] = [
         "cname": "pantheonsite.io",
         "fingerprint": "The gods are wise, but do not know of the site which you seek",
     },
-
     # E-Commerce & CMS Platforms
     {
         "service": "Shopify",
@@ -169,7 +167,6 @@ TAKEOVER_SIGNATURES: list[dict[str, str]] = [
         "cname": "hubspot.net",
         "fingerprint": "Domain not found",
     },
-
     # Support, Documentation & Analytics
     {
         "service": "Zendesk",
@@ -219,7 +216,7 @@ class TakeoverResult:
     subdomain: str
     cname: str
     service: str
-    status: str       # VULNERABLE | DANGLING | VERIFIED
+    status: str  # VULNERABLE | DANGLING | VERIFIED
     fingerprint: str = ""
 
     def to_dict(self) -> dict:
@@ -241,7 +238,9 @@ class TakeoverModule:
             return None
         return None
 
-    async def _verify_takeover(self, client, subdomain: str, cname: str, sig: dict, semaphore: asyncio.Semaphore) -> TakeoverResult | None:
+    async def _verify_takeover(
+        self, client, subdomain: str, cname: str, sig: dict, semaphore: asyncio.Semaphore
+    ) -> TakeoverResult | None:
         async with semaphore:
             await apply_stealth_delay(self.state.config)
             test_url = f"http://{subdomain}"

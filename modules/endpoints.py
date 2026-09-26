@@ -7,14 +7,14 @@ from __future__ import annotations
 
 import logging
 import re
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING
 from urllib.parse import urljoin, urlparse
 
 from bs4 import BeautifulSoup
 
 from modules.findings import push_finding
-from modules.stealth import build_client, apply_stealth_delay
+from modules.stealth import apply_stealth_delay, build_client
 
 if TYPE_CHECKING:
     from app.state import AppState
@@ -26,7 +26,7 @@ logger = logging.getLogger("recon_wire.endpoints")
 class EndpointResult:
     url: str
     path: str
-    category: str      # API | SCRIPT | FORM | LINK
+    category: str  # API | SCRIPT | FORM | LINK
     method: str = "GET"
 
     def to_dict(self) -> dict:
@@ -74,7 +74,11 @@ class EndpointModule:
                     parsed = urlparse(full)
                     if parsed.netloc.lower() in (target_host, f"www.{target_host}"):
                         path = parsed.path or "/"
-                        cat = "API" if any(k in path.lower() for k in ("/api/", "/v1/", "/v2/", "/graphql", "/swagger")) else "LINK"
+                        cat = (
+                            "API"
+                            if any(k in path.lower() for k in ("/api/", "/v1/", "/v2/", "/graphql", "/swagger"))
+                            else "LINK"
+                        )
                         if full not in discovered:
                             discovered[full] = EndpointResult(url=full, path=path, category=cat)
 
@@ -101,7 +105,8 @@ class EndpointModule:
 
                 # Check for sensitive endpoints
                 sensitive_hits = [
-                    (e, e.path) for e in discovered.values()
+                    (e, e.path)
+                    for e in discovered.values()
                     if any(term in e.path.lower() for term in ("graphql", "swagger", "api-docs", "admin", "debug"))
                 ]
 

@@ -6,9 +6,9 @@ Performs async TCP connect probe and service identification for critical web and
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
-import socket
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING
 
 from modules.findings import push_finding
@@ -46,7 +46,6 @@ COMMON_PORTS: dict[int, str] = {
     993: "IMAPS",
     995: "POP3S",
     2049: "NFS",
-
     # Web Applications & Proxies
     3000: "NODE/GRAFANA",
     4200: "ANGULAR-DEV",
@@ -59,7 +58,6 @@ COMMON_PORTS: dict[int, str] = {
     8888: "HTTP-ADMIN",
     9000: "PORTAINER/SONAR",
     9443: "HTTPS-MGMT",
-
     # Remote Management & Virtualization
     3389: "RDP",
     5900: "VNC",
@@ -67,7 +65,6 @@ COMMON_PORTS: dict[int, str] = {
     5985: "WINRM-HTTP",
     5986: "WINRM-HTTPS",
     10000: "WEBMIN",
-
     # Databases & Caches
     1433: "MSSQL",
     1521: "ORACLE",
@@ -82,14 +79,12 @@ COMMON_PORTS: dict[int, str] = {
     11211: "MEMCACHED",
     27017: "MONGODB",
     27018: "MONGODB-SHARD",
-
     # Message Brokers & Queues
     1883: "MQTT",
     5672: "RABBITMQ",
     8883: "MQTT-SSL",
     9092: "KAFKA",
     15672: "RABBITMQ-MGMT",
-
     # Containers & Cloud Orchestration
     2375: "DOCKER-PLAIN",
     2376: "DOCKER-TLS",
@@ -98,7 +93,6 @@ COMMON_PORTS: dict[int, str] = {
     8200: "HASHICORP-VAULT",
     8500: "CONSUL",
     10250: "KUBELET",
-
     # Hosting Control Panels
     2082: "CPANEL",
     2083: "CPANEL_SSL",
@@ -124,7 +118,9 @@ class PortModule:
     def __init__(self, state: AppState) -> None:
         self.state = state
 
-    async def _probe_port(self, host: str, port: int, service_name: str, semaphore: asyncio.Semaphore) -> PortResult | None:
+    async def _probe_port(
+        self, host: str, port: int, service_name: str, semaphore: asyncio.Semaphore
+    ) -> PortResult | None:
         async with semaphore:
             timeout = min(3.0, float(self.state.config.timeout))
             try:
@@ -146,10 +142,8 @@ class PortModule:
                     pass
                 finally:
                     writer.close()
-                    try:
+                    with contextlib.suppress(Exception):
                         await writer.wait_closed()
-                    except Exception:
-                        pass
 
                 return PortResult(port=port, service=service_name, banner=banner)
             except (asyncio.TimeoutError, OSError, ConnectionRefusedError):
@@ -163,10 +157,7 @@ class PortModule:
 
         target_host = self.state.config.hostname
         semaphore = asyncio.Semaphore(self.state.config.max_concurrent)
-        tasks = [
-            self._probe_port(target_host, port, svc, semaphore)
-            for port, svc in COMMON_PORTS.items()
-        ]
+        tasks = [self._probe_port(target_host, port, svc, semaphore) for port, svc in COMMON_PORTS.items()]
 
         raw_results = await asyncio.gather(*tasks, return_exceptions=True)
         open_ports: list[PortResult] = [r for r in raw_results if isinstance(r, PortResult)]
